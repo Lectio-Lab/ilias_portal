@@ -1,0 +1,125 @@
+<div class="page-container">
+  <div class="page-header">
+    <div class="header-left">
+      <h1>My Courses</h1>
+      <p>Your enrolled ILIAS courses — synchronized from Tübingen University</p>
+    </div>
+    <button
+      class="btn-primary refresh-btn"
+      (click)="refreshCourses()"
+      [disabled]="refreshing || loading"
+    >
+      <span class="spinner" *ngIf="refreshing"></span>
+      <i class="fas fa-sync-alt" *ngIf="!refreshing" [class.spinning]="refreshing"></i>
+      {{ refreshing ? 'Refreshing…' : '🔄 Refresh from ILIAS' }}
+    </button>
+  </div>
+
+  <!-- Refresh progress -->
+  <div class="refresh-progress" *ngIf="refreshing">
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+    <p class="progress-msg">
+      <span class="spinner"></span>
+      {{ refreshProgress }}
+    </p>
+    <p class="progress-note text-muted fs-xs">
+      This may take 10–30 seconds as we communicate with the ILIAS server.
+    </p>
+  </div>
+
+  <!-- Refresh success -->
+  <div class="alert-success" *ngIf="refreshSuccess">
+    <i class="fas fa-check-circle"></i>
+    {{ refreshSuccess }}
+  </div>
+
+  <!-- Refresh error -->
+  <div class="alert-error" *ngIf="refreshError">
+    <i class="fas fa-exclamation-circle"></i>
+    {{ refreshError }}
+    <a routerLink="/credentials" *ngIf="refreshError.includes('credentials')" class="error-link">
+      Update credentials →
+    </a>
+  </div>
+
+  <!-- Load error -->
+  <div class="alert-error" *ngIf="errorMessage">
+    <i class="fas fa-exclamation-circle"></i>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Loading skeleton -->
+  <div class="courses-grid" *ngIf="loading">
+    <div class="skeleton-card" *ngFor="let i of [1,2,3,4,5,6]"></div>
+  </div>
+
+  <!-- Courses grid -->
+  <div class="courses-grid" *ngIf="!loading && courses.length > 0">
+    <div
+      class="course-card"
+      *ngFor="let course of courses; trackBy: trackByCourseId"
+    >
+      <div class="course-card-header">
+        <div class="course-thumb">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <span class="badge" [ngClass]="getRoleBadgeClass(course.role)" *ngIf="course.role">
+          {{ course.role }}
+        </span>
+      </div>
+
+      <div class="course-card-body">
+        <h3 class="course-title" [title]="course.title">{{ course.title }}</h3>
+        <p class="course-id text-muted fs-xs">
+          <i class="fas fa-hashtag"></i> Course ID: {{ course.course_id }}
+        </p>
+        <p class="course-refreshed text-muted fs-xs" *ngIf="course.last_refreshed">
+          <i class="fas fa-clock"></i>
+          Updated {{ course.last_refreshed | date:'MMM d, y' }}
+        </p>
+      </div>
+
+      <div class="course-card-footer">
+        <a
+          [routerLink]="['/courses', course.course_id]"
+          class="btn-primary btn-sm"
+        >
+          <i class="fas fa-arrow-right"></i>
+          Open Course
+        </a>
+        <a
+          [href]="course.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-secondary btn-sm"
+          *ngIf="course.url"
+        >
+          <i class="fas fa-external-link-alt"></i>
+          ILIAS
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && courses.length === 0">
+    <div class="empty-icon">📭</div>
+    <h3>No courses found</h3>
+    <p>
+      We haven't synced your courses yet. Make sure your ILIAS credentials are configured,
+      then click <strong>"Refresh from ILIAS"</strong> to load your courses.
+    </p>
+    <div class="empty-actions">
+      <a routerLink="/credentials" class="btn-secondary">
+        <i class="fas fa-key"></i> Set ILIAS Credentials
+      </a>
+      <button class="btn-primary" (click)="refreshCourses()" [disabled]="refreshing">
+        <span class="spinner" *ngIf="refreshing"></span>
+        <i class="fas fa-sync-alt" *ngIf="!refreshing"></i>
+        Refresh Courses
+      </button>
+    </div>
+  </div>
+</div>

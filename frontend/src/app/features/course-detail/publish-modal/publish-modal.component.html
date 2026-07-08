@@ -1,0 +1,251 @@
+<div class="modal-overlay" (click)="onOverlayClick($event)">
+  <div class="modal-box" role="dialog" [attr.aria-label]="modalTitle">
+    <!-- Header -->
+    <div class="modal-header">
+      <h2>{{ modalTitle }}</h2>
+      <button class="modal-close" (click)="close()" aria-label="Close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+
+      <!-- Success state -->
+      <div class="publish-success" *ngIf="successMessage">
+        <div class="success-icon">✅</div>
+        <h3>Published successfully!</h3>
+        <p>{{ successMessage }}</p>
+        <button class="btn-primary" (click)="close()">
+          <i class="fas fa-check"></i> Done
+        </button>
+      </div>
+
+      <!-- Form -->
+      <ng-container *ngIf="!successMessage">
+        <div class="alert-error" *ngIf="errorMessage">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ errorMessage }}
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+
+          <!-- ===== ASSIGNMENT MODE ===== -->
+          <ng-container *ngIf="mode === 'assignment'">
+            <div class="form-group">
+              <label for="title">Assignment title *</label>
+              <input
+                id="title"
+                type="text"
+                class="form-control"
+                formControlName="title"
+                placeholder="e.g., Exercise Sheet 3"
+              />
+              <span class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+                Title is required (min 3 characters).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="instruction">Instructions *</label>
+              <textarea
+                id="instruction"
+                class="form-control"
+                formControlName="instruction"
+                placeholder="Describe the assignment instructions, objectives, and requirements…"
+                rows="5"
+              ></textarea>
+              <span class="form-error" *ngIf="form.get('instruction')?.invalid && form.get('instruction')?.touched">
+                Instructions are required (min 10 characters).
+              </span>
+            </div>
+
+            <div class="deadline-row">
+              <div class="form-group">
+                <label for="deadline_date">Deadline date (optional)</label>
+                <input
+                  id="deadline_date"
+                  type="date"
+                  class="form-control"
+                  formControlName="deadline_date"
+                />
+              </div>
+              <div class="form-group">
+                <label for="deadline_time">Deadline time (optional)</label>
+                <input
+                  id="deadline_time"
+                  type="time"
+                  class="form-control"
+                  formControlName="deadline_time"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Attachment (optional)</label>
+              <div class="file-upload-zone" [class.has-file]="selectedFile">
+                <input
+                  type="file"
+                  id="assignment-file"
+                  class="file-input"
+                  (change)="onFileSelected($event)"
+                  accept=".pdf,.doc,.docx,.zip,.txt"
+                />
+                <label for="assignment-file" class="file-upload-label">
+                  <ng-container *ngIf="!selectedFile">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Click to upload or drag & drop</span>
+                    <span class="file-hint">PDF, DOC, DOCX, ZIP (max 50MB)</span>
+                  </ng-container>
+                  <ng-container *ngIf="selectedFile">
+                    <i class="fas fa-file-alt"></i>
+                    <span class="fw-medium">{{ selectedFile.name }}</span>
+                    <span class="file-hint">{{ formatFileSize(selectedFile.size) }}</span>
+                  </ng-container>
+                </label>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ===== SLIDES MODE ===== -->
+          <ng-container *ngIf="mode === 'slides'">
+            <div class="form-group">
+              <label for="folder_title">Folder title *</label>
+              <input
+                id="folder_title"
+                type="text"
+                class="form-control"
+                formControlName="folder_title"
+                placeholder="e.g., Lecture 5 - Neural Networks"
+              />
+              <span class="form-error" *ngIf="form.get('folder_title')?.invalid && form.get('folder_title')?.touched">
+                Folder title is required (min 3 characters).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="description">Description (optional)</label>
+              <textarea
+                id="description"
+                class="form-control"
+                formControlName="description"
+                placeholder="Brief description of these slides…"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Slide files * <span class="text-muted fs-xs">(PDF, PPT, PPTX)</span></label>
+              <div class="file-upload-zone" [class.has-file]="selectedFiles.length > 0">
+                <input
+                  type="file"
+                  id="slides-files"
+                  class="file-input"
+                  (change)="onFilesSelected($event)"
+                  accept=".pdf,.ppt,.pptx,.key"
+                  multiple
+                />
+                <label for="slides-files" class="file-upload-label">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <span>Click to upload slides</span>
+                  <span class="file-hint">PDF, PPT, PPTX — multiple files allowed</span>
+                </label>
+              </div>
+              <span class="form-error" *ngIf="errorMessage?.includes('file')">
+                Please select at least one file.
+              </span>
+
+              <div class="file-list" *ngIf="selectedFiles.length > 0">
+                <div class="file-item" *ngFor="let f of selectedFiles; let i = index">
+                  <i class="fas fa-file-pdf"></i>
+                  <span class="file-name">{{ f.name }}</span>
+                  <span class="file-size text-muted fs-xs">{{ formatFileSize(f.size) }}</span>
+                  <button type="button" class="file-remove" (click)="removeFile(i)">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ===== ANNOUNCEMENT MODE ===== -->
+          <ng-container *ngIf="mode === 'announcement'">
+            <div class="form-group">
+              <label for="ann-title">Announcement title *</label>
+              <input
+                id="ann-title"
+                type="text"
+                class="form-control"
+                formControlName="title"
+                placeholder="e.g., Exam date changed"
+              />
+              <span class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+                Title is required (min 3 characters).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="content">Content *</label>
+              <textarea
+                id="content"
+                class="form-control"
+                formControlName="content"
+                placeholder="Write your announcement here…"
+                rows="6"
+              ></textarea>
+              <span class="form-error" *ngIf="form.get('content')?.invalid && form.get('content')?.touched">
+                Content is required (min 10 characters).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label>Visibility</label>
+              <div class="radio-group">
+                <label class="radio-option" [class.selected]="form.get('visibility')?.value === 'users'">
+                  <input type="radio" formControlName="visibility" value="users" />
+                  <div class="radio-content">
+                    <i class="fas fa-users"></i>
+                    <div>
+                      <span class="fw-medium">Course members only</span>
+                      <span class="text-muted fs-xs">Visible to enrolled students</span>
+                    </div>
+                  </div>
+                </label>
+                <label class="radio-option" [class.selected]="form.get('visibility')?.value === 'public'">
+                  <input type="radio" formControlName="visibility" value="public" />
+                  <div class="radio-content">
+                    <i class="fas fa-globe"></i>
+                    <div>
+                      <span class="fw-medium">Public</span>
+                      <span class="text-muted fs-xs">Visible to everyone</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </ng-container>
+
+        </form>
+      </ng-container>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer" *ngIf="!successMessage">
+      <button class="btn-secondary" (click)="close()" [disabled]="loading">
+        Cancel
+      </button>
+      <button class="btn-primary" (click)="onSubmit()" [disabled]="loading">
+        <span class="spinner" *ngIf="loading"></span>
+        <ng-container *ngIf="!loading">
+          <i class="fas fa-paper-plane"></i>
+          <ng-container [ngSwitch]="mode">
+            <span *ngSwitchCase="'assignment'">Publish Assignment</span>
+            <span *ngSwitchCase="'slides'">Upload Slides</span>
+            <span *ngSwitchCase="'announcement'">Post Announcement</span>
+          </ng-container>
+        </ng-container>
+        <span *ngIf="loading">Publishing…</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,122 @@
+<div class="page-container">
+  <!-- Welcome banner -->
+  <div class="welcome-banner">
+    <div class="welcome-text">
+      <h1 *ngIf="!loadingUser">{{ greeting }}, {{ displayName }} 👋</h1>
+      <div class="skeleton-title" *ngIf="loadingUser"></div>
+      <p class="text-muted">Here's an overview of your ILIAS Portal activity</p>
+    </div>
+    <div class="welcome-art">🎓</div>
+  </div>
+
+  <!-- ILIAS credentials alert -->
+  <div class="alert-warning" *ngIf="!hasCredentials">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+      <strong>Set up your ILIAS credentials to get started.</strong>
+      Your Tübingen University (zx...) login is required to fetch your courses.
+      <a routerLink="/credentials" class="alert-link">Configure now →</a>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon courses-icon">
+        <i class="fas fa-book-open"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">
+          <span *ngIf="!loadingCourses">{{ courses.length }}</span>
+          <span class="skeleton-num" *ngIf="loadingCourses"></span>
+        </span>
+        <span class="stat-label">Enrolled courses</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon creds-icon">
+        <i class="fas fa-key"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">
+          <i
+            class="fas"
+            [class.fa-check-circle]="hasCredentials"
+            [class.fa-times-circle]="!hasCredentials"
+            [class.text-success]="hasCredentials"
+            [class.text-error]="!hasCredentials"
+          ></i>
+        </span>
+        <span class="stat-label">ILIAS credentials</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon refresh-icon">
+        <i class="fas fa-sync-alt"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value stat-value-sm">
+          <span *ngIf="courses.length > 0 && courses[0].last_refreshed">
+            {{ courses[0].last_refreshed | date:'MMM d, H:mm' }}
+          </span>
+          <span *ngIf="courses.length === 0 || !courses[0].last_refreshed" class="text-muted">
+            Never
+          </span>
+        </span>
+        <span class="stat-label">Last refreshed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="section-title">Quick actions</div>
+  <div class="quick-actions">
+    <a routerLink="/courses" class="action-card">
+      <div class="action-icon">📚</div>
+      <div class="action-content">
+        <h3>View My Courses</h3>
+        <p>Browse your enrolled ILIAS courses and their materials</p>
+      </div>
+      <i class="fas fa-arrow-right action-arrow"></i>
+    </a>
+
+    <a routerLink="/credentials" class="action-card">
+      <div class="action-icon">🔑</div>
+      <div class="action-content">
+        <h3>ILIAS Credentials</h3>
+        <p>Update your Tübingen University login credentials</p>
+      </div>
+      <i class="fas fa-arrow-right action-arrow"></i>
+    </a>
+  </div>
+
+  <!-- Recent courses preview -->
+  <ng-container *ngIf="courses.length > 0">
+    <div class="section-header">
+      <div class="section-title">Recent courses</div>
+      <a routerLink="/courses" class="section-link">View all →</a>
+    </div>
+
+    <div class="recent-courses">
+      <a
+        *ngFor="let course of courses.slice(0, 3)"
+        [routerLink]="['/courses', course.course_id]"
+        class="recent-course-card"
+      >
+        <div class="course-icon">📖</div>
+        <div class="course-info">
+          <div class="course-title">{{ course.title }}</div>
+          <div class="course-meta">
+            <span class="badge badge-primary" *ngIf="course.role">{{ course.role }}</span>
+            <span class="text-muted fs-xs" *ngIf="course.last_refreshed">
+              Updated {{ course.last_refreshed | date:'MMM d' }}
+            </span>
+          </div>
+        </div>
+        <i class="fas fa-chevron-right course-arrow"></i>
+      </a>
+    </div>
+  </ng-container>
+</div>

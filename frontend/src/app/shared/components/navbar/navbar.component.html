@@ -1,0 +1,75 @@
+<nav class="navbar">
+  <div class="navbar-inner">
+    <!-- Brand -->
+    <a class="navbar-brand" routerLink="/dashboard">
+      <span class="brand-icon">🎓</span>
+      <span class="brand-text">ILIAS Portal</span>
+    </a>
+
+    <!-- Desktop nav links -->
+    <ul class="nav-links">
+      <li>
+        <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+      </li>
+      <li>
+        <a routerLink="/courses" routerLinkActive="active">
+          <i class="fas fa-book-open"></i> My Courses
+        </a>
+      </li>
+      <li>
+        <a routerLink="/publish" routerLinkActive="active">
+          <i class="fas fa-paper-plane"></i> Publish Content
+        </a>
+      </li>
+      <li>
+        <a routerLink="/credentials" routerLinkActive="active">
+          <i class="fas fa-key"></i> ILIAS Credentials
+        </a>
+      </li>
+    </ul>
+
+    <!-- User area -->
+    <div class="nav-user">
+      <span class="user-email" *ngIf="user">
+        <i class="fas fa-user-circle"></i>
+        {{ user.first_name }} {{ user.last_name }}
+      </span>
+      <button class="logout-btn" (click)="logout()">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Logout</span>
+      </button>
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button class="hamburger" (click)="toggleMobileMenu()" aria-label="Toggle menu">
+      <span [class.open]="mobileMenuOpen"></span>
+      <span [class.open]="mobileMenuOpen"></span>
+      <span [class.open]="mobileMenuOpen"></span>
+    </button>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="mobile-menu" [class.open]="mobileMenuOpen">
+    <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu()">
+      <i class="fas fa-tachometer-alt"></i> Dashboard
+    </a>
+    <a routerLink="/courses" routerLinkActive="active" (click)="closeMobileMenu()">
+      <i class="fas fa-book-open"></i> My Courses
+    </a>
+    <a routerLink="/publish" routerLinkActive="active" (click)="closeMobileMenu()">
+      <i class="fas fa-paper-plane"></i> Publish Content
+    </a>
+    <a routerLink="/credentials" routerLinkActive="active" (click)="closeMobileMenu()">
+      <i class="fas fa-key"></i> ILIAS Credentials
+    </a>
+    <div class="mobile-divider"></div>
+    <span class="mobile-user" *ngIf="user">
+      {{ user.email }}
+    </span>
+    <button class="logout-btn" (click)="logout()">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </button>
+  </div>
+</nav>

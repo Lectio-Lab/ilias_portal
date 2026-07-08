@@ -1,0 +1,130 @@
+<div class="register-page">
+  <div class="register-card">
+    <!-- Header -->
+    <div class="register-header">
+      <div class="logo">🎓</div>
+      <h1>Create account</h1>
+      <p>Join the ILIAS Portal to manage your university courses</p>
+    </div>
+
+    <!-- Error -->
+    <div class="alert-error" *ngIf="errorMessage">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ errorMessage }}
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <!-- Name row -->
+      <div class="name-row">
+        <div class="form-group">
+          <label for="firstName">First name</label>
+          <input
+            id="firstName"
+            type="text"
+            class="form-control"
+            formControlName="firstName"
+            placeholder="Anna"
+            autocomplete="given-name"
+          />
+          <span class="form-error" *ngIf="firstName.invalid && firstName.touched">
+            <ng-container *ngIf="firstName.errors?.['required']">Required.</ng-container>
+            <ng-container *ngIf="firstName.errors?.['minlength']">Min 2 chars.</ng-container>
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="lastName">Last name</label>
+          <input
+            id="lastName"
+            type="text"
+            class="form-control"
+            formControlName="lastName"
+            placeholder="Müller"
+            autocomplete="family-name"
+          />
+          <span class="form-error" *ngIf="lastName.invalid && lastName.touched">
+            <ng-container *ngIf="lastName.errors?.['required']">Required.</ng-container>
+            <ng-container *ngIf="lastName.errors?.['minlength']">Min 2 chars.</ng-container>
+          </span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input
+          id="email"
+          type="email"
+          class="form-control"
+          formControlName="email"
+          placeholder="you@uni-tuebingen.de"
+          autocomplete="email"
+        />
+        <span class="form-error" *ngIf="email.invalid && email.touched">
+          <ng-container *ngIf="email.errors?.['required']">Email is required.</ng-container>
+          <ng-container *ngIf="email.errors?.['email']">Enter a valid email address.</ng-container>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-wrapper">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            class="form-control"
+            formControlName="password"
+            placeholder="Min. 8 characters"
+            autocomplete="new-password"
+          />
+          <button type="button" class="toggle-pw" (click)="showPassword = !showPassword">
+            <i [class]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+        <span class="form-error" *ngIf="password.invalid && password.touched">
+          <ng-container *ngIf="password.errors?.['required']">Password is required.</ng-container>
+          <ng-container *ngIf="password.errors?.['minlength']">Minimum 8 characters required.</ng-container>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm password</label>
+        <div class="input-wrapper">
+          <input
+            id="confirmPassword"
+            [type]="showConfirm ? 'text' : 'password'"
+            class="form-control"
+            formControlName="confirmPassword"
+            placeholder="Repeat your password"
+            autocomplete="new-password"
+          />
+          <button type="button" class="toggle-pw" (click)="showConfirm = !showConfirm">
+            <i [class]="showConfirm ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+        <span class="form-error" *ngIf="confirmPassword.touched && form.errors?.['passwordMismatch']">
+          Passwords do not match.
+        </span>
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary btn-block"
+        [disabled]="loading"
+      >
+        <span class="spinner" *ngIf="loading"></span>
+        <span>{{ loading ? 'Creating account…' : 'Create account' }}</span>
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="register-footer">
+      <p>Already have an account? <a routerLink="/login">Sign in</a></p>
+    </div>
+  </div>
+
+  <div class="bg-decoration">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+</div>

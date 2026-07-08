@@ -1,0 +1,29 @@
+# Compiled python
+backend/__pycache__/
+backend/*.py[cod]
+
+# Virtual environments
+backend/venv/
+backend/env/
+backend/.venv/
+
+# Django Database and logs
+backend/db.sqlite3
+backend/*.log
+
+# Environment variables
+backend/.env
+frontend/.env
+.env
+
+# Node modules / Angular build
+frontend/node_modules/
+frontend/.angular/
+frontend/dist/
+
+# IDE files
+.idea/
+.vscode/
+
+# OS files
+.DS_Store

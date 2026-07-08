@@ -1,0 +1,81 @@
+<div class="login-page">
+  <div class="login-card">
+    <!-- Header -->
+    <div class="login-header">
+      <div class="logo">🎓</div>
+      <h1>Welcome back</h1>
+      <p>Sign in to your ILIAS Portal account</p>
+    </div>
+
+    <!-- Error -->
+    <div class="alert-error" *ngIf="errorMessage">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ errorMessage }}
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input
+          id="email"
+          type="email"
+          class="form-control"
+          formControlName="email"
+          placeholder="you@uni-tuebingen.de"
+          autocomplete="email"
+        />
+        <span class="form-error" *ngIf="email.invalid && email.touched">
+          <ng-container *ngIf="email.errors?.['required']">Email is required.</ng-container>
+          <ng-container *ngIf="email.errors?.['email']">Enter a valid email address.</ng-container>
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-wrapper">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            class="form-control"
+            formControlName="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+          />
+          <button
+            type="button"
+            class="toggle-pw"
+            (click)="togglePassword()"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+          >
+            <i [class]="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+        <span class="form-error" *ngIf="password.invalid && password.touched">
+          <ng-container *ngIf="password.errors?.['required']">Password is required.</ng-container>
+          <ng-container *ngIf="password.errors?.['minlength']">Password must be at least 6 characters.</ng-container>
+        </span>
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary btn-block"
+        [disabled]="loading"
+      >
+        <span class="spinner" *ngIf="loading"></span>
+        <span>{{ loading ? 'Signing in…' : 'Sign in' }}</span>
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <p>Don't have an account? <a routerLink="/register">Create one</a></p>
+    </div>
+  </div>
+
+  <!-- Background decoration -->
+  <div class="bg-decoration">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+</div>

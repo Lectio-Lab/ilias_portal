@@ -1,0 +1,265 @@
+<div class="page-container">
+  <div class="header-section">
+    <h1>🚀 Publish to ILIAS</h1>
+    <p class="text-muted">Publish assignments, slides, and announcements directly to your Tübingen ILIAS course.</p>
+  </div>
+
+  <div class="publish-card">
+    <!-- Mode Selector -->
+    <div class="mode-tabs">
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="publishMode === 'assignment'"
+        (click)="setMode('assignment')">
+        📝 Assignment
+      </button>
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="publishMode === 'slides'"
+        (click)="setMode('slides')">
+        📁 Lecture Slides
+      </button>
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="publishMode === 'announcement'"
+        (click)="setMode('announcement')">
+        📢 Announcement
+      </button>
+    </div>
+
+    <!-- Feedback States -->
+    <div class="alert-success" *ngIf="successMessage">
+      <div class="success-header">
+        <i class="fas fa-check-circle"></i>
+        <span>{{ successMessage }}</span>
+      </div>
+      <div class="success-url" *ngIf="publishUrl">
+        <strong>ILIAS URL: </strong>
+        <a [href]="publishUrl" target="_blank" class="url-link">{{ publishUrl }}</a>
+      </div>
+    </div>
+
+    <div class="alert-error" *ngIf="errorMessage">
+      <i class="fas fa-exclamation-circle"></i>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <!-- Forms -->
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <!-- Course ID (Universal) -->
+      <div class="form-group">
+        <label for="courseId">ILIAS Course ID *</label>
+        <input
+          id="courseId"
+          type="text"
+          class="form-control"
+          formControlName="courseId"
+          placeholder="e.g., 5658784"
+        />
+        <span class="form-error" *ngIf="form.get('courseId')?.invalid && form.get('courseId')?.touched">
+          A valid numeric Course ID is required.
+        </span>
+      </div>
+
+      <!-- ===== ASSIGNMENT MODE ===== -->
+      <ng-container *ngIf="publishMode === 'assignment'">
+        <div class="form-group">
+          <label for="title">Assignment Title *</label>
+          <input
+            id="title"
+            type="text"
+            class="form-control"
+            formControlName="title"
+            placeholder="e.g., Homework 1: PML Introduction"
+          />
+          <span class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+            Title is required (min 3 characters).
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="instruction">Instructions *</label>
+          <textarea
+            id="instruction"
+            class="form-control"
+            formControlName="instruction"
+            placeholder="Provide instructions for students..."
+            rows="5"
+          ></textarea>
+          <span class="form-error" *ngIf="form.get('instruction')?.invalid && form.get('instruction')?.touched">
+            Instructions are required (min 10 characters).
+          </span>
+        </div>
+
+        <div class="deadline-row">
+          <div class="form-group">
+            <label for="deadline_date">Deadline Date (optional)</label>
+            <input
+              id="deadline_date"
+              type="date"
+              class="form-control"
+              formControlName="deadline_date"
+            />
+          </div>
+          <div class="form-group">
+            <label for="deadline_time">Deadline Time (optional)</label>
+            <input
+              id="deadline_time"
+              type="time"
+              class="form-control"
+              formControlName="deadline_time"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Attach Worksheet / Material (optional)</label>
+          <div class="file-upload-zone" [class.has-file]="selectedFile">
+            <input
+              type="file"
+              id="assignment-file"
+              class="file-input"
+              (change)="onFileSelected($event)"
+            />
+            <label for="assignment-file" class="file-upload-label">
+              <ng-container *ngIf="!selectedFile">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Click to upload or drag & drop</span>
+              </ng-container>
+              <ng-container *ngIf="selectedFile">
+                <i class="fas fa-file-alt"></i>
+                <span class="fw-medium">{{ selectedFile.name }}</span>
+                <span class="file-hint">{{ formatFileSize(selectedFile.size) }}</span>
+              </ng-container>
+            </label>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ===== SLIDES MODE ===== -->
+      <ng-container *ngIf="publishMode === 'slides'">
+        <div class="form-group">
+          <label for="folder_title">Folder Title *</label>
+          <input
+            id="folder_title"
+            type="text"
+            class="form-control"
+            formControlName="folder_title"
+            placeholder="e.g., Lecture 2: Neural Networks"
+          />
+          <span class="form-error" *ngIf="form.get('folder_title')?.invalid && form.get('folder_title')?.touched">
+            Folder title is required (min 3 characters).
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Folder Description / Notes (optional)</label>
+          <textarea
+            id="description"
+            class="form-control"
+            formControlName="description"
+            placeholder="Notes about this lecture slides folder..."
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Attach Slide Files * <span class="text-muted fs-xs">(Multiple allowed)</span></label>
+          <div class="file-upload-zone" [class.has-file]="selectedFiles.length > 0">
+            <input
+              type="file"
+              id="slides-files"
+              class="file-input"
+              (change)="onFilesSelected($event)"
+              multiple
+            />
+            <label for="slides-files" class="file-upload-label">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <span>Click to upload slides</span>
+            </label>
+          </div>
+
+          <div class="file-list" *ngIf="selectedFiles.length > 0">
+            <div class="file-item" *ngFor="let f of selectedFiles; let i = index">
+              <i class="fas fa-file-pdf"></i>
+              <span class="file-name">{{ f.name }}</span>
+              <span class="file-size text-muted fs-xs">{{ formatFileSize(f.size) }}</span>
+              <button type="button" class="file-remove" (click)="removeFile(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ===== ANNOUNCEMENT MODE ===== -->
+      <ng-container *ngIf="publishMode === 'announcement'">
+        <div class="form-group">
+          <label for="ann-title">Announcement Title *</label>
+          <input
+            id="ann-title"
+            type="text"
+            class="form-control"
+            formControlName="title"
+            placeholder="e.g., Exam Date Announcement"
+          />
+          <span class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+            Title is required (min 3 characters).
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="content">Announcement Content *</label>
+          <textarea
+            id="content"
+            class="form-control"
+            formControlName="content"
+            placeholder="Type your announcement details here..."
+            rows="6"
+          ></textarea>
+          <span class="form-error" *ngIf="form.get('content')?.invalid && form.get('content')?.touched">
+            Content is required (min 10 characters).
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>Visibility</label>
+          <div class="radio-group">
+            <label class="radio-option" [class.selected]="form.get('visibility')?.value === 'users'">
+              <input type="radio" formControlName="visibility" value="users" />
+              <div class="radio-content">
+                <i class="fas fa-users"></i>
+                <div>
+                  <span class="fw-medium">Users only (Course members)</span>
+                  <span class="text-muted fs-xs">Visible to enrolled students</span>
+                </div>
+              </div>
+            </label>
+            <label class="radio-option" [class.selected]="form.get('visibility')?.value === 'public'">
+              <input type="radio" formControlName="visibility" value="public" />
+              <div class="radio-content">
+                <i class="fas fa-globe"></i>
+                <div>
+                  <span class="fw-medium">Public (Everyone)</span>
+                  <span class="text-muted fs-xs">Visible to everyone</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Action Button -->
+      <div class="form-actions">
+        <button type="submit" class="btn-primary btn-block" [disabled]="loading">
+          <span class="spinner" *ngIf="loading"></span>
+          <span *ngIf="!loading">🚀 Publish to ILIAS</span>
+          <span *ngIf="loading">Publishing…</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
