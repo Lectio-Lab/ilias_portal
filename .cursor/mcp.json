@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ilias-portal": {
+      "command": "bash",
+      "args": ["agent/scripts/start-mcp.sh"]
+    }
+  }
+}
