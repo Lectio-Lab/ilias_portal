@@ -342,3 +342,56 @@ class DownloadFileView(APIView):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["Content-Length"] = len(content)
         return response
+
+
+class SessionStatusView(APIView):
+    """GET /api/ilias/session/status/ — lightweight ILIAS session health check."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            creds = request.user.ilias_credential
+        except IliasCredential.DoesNotExist:
+            return Response(
+                {
+                    "valid": False,
+                    "message": "No ILIAS credentials saved. Add them via /api/auth/ilias-credentials/.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        client = IliasClient(
+            username=creds.ilias_username,
+            password=creds.ilias_password,
+            phpsessid=creds.phpsessid,
+            shibsession=creds.shibsession,
+        )
+
+        try:
+            valid = client.is_session_valid()
+        except Exception as exc:
+            return Response(
+                {
+                    "valid": False,
+                    "message": f"Session check failed: {exc}",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if valid:
+            return Response(
+                {
+                    "valid": True,
+                    "message": "ILIAS session is active.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "valid": False,
+                "message": "ILIAS session expired. Run course refresh to re-authenticate (MFA may be required).",
+            },
+            status=status.HTTP_200_OK,
+        )

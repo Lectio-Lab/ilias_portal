@@ -8,11 +8,13 @@ from .views import (
     PublishAssignmentView,
     PublishSlidesView,
     RefreshCoursesView,
+    SessionStatusView,
 )
 
 urlpatterns = [
     path("courses/", CoursesView.as_view()),
     path("courses/refresh/", RefreshCoursesView.as_view()),
+    path("session/status/", SessionStatusView.as_view()),
     path("courses/<int:course_id>/contents/", CourseContentsView.as_view()),
     path(
         "courses/<int:course_id>/publish/assignment/", PublishAssignmentView.as_view()
