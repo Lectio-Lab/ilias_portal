@@ -1,0 +1,9 @@
+# Optional override for agent development.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.agent.yml up -d
+services:
+  backend:
+    environment:
+      DEBUG: "True"
+    # Expose backend on host for MCP server (stdio) running outside Docker
+    ports:
+      - "8000:8000"
