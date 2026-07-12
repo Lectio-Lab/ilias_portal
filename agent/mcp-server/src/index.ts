@@ -39,7 +39,7 @@ export function createServer(
 
   server.tool(
     "ilias_check_setup",
-    "Verify env credentials and ILIAS session readiness. Call before publish operations. Uses agent/credentials/.env.local only — no frontend.",
+    "Verify env credentials and ILIAS session readiness. Call before publish operations. Credentials come from .env.local via MCP launcher.",
     {},
     { readOnlyHint: true },
     async () => {
@@ -80,7 +80,7 @@ export function createServer(
           ready_for_publish: readyForPublish,
           hint:
             missing.length > 0
-              ? "Fill missing vars in agent/credentials/.env.local and restart MCP."
+              ? "Fill missing vars in .env.local and restart MCP."
               : !readyForPublish
                 ? "Run ilias_refresh_courses once to establish ILIAS session (MFA may open in browser)."
                 : "Ready to publish.",
@@ -108,7 +108,7 @@ export function createServer(
 
   server.tool(
     "ilias_refresh_courses",
-    "Establish or refresh ILIAS session and sync dashboard courses. May open Chromium for MFA. Call when ilias_check_setup reports invalid session.",
+    "Establish or refresh ILIAS session and sync dashboard courses. May open a browser window for MFA. Call when ilias_check_setup reports invalid session.",
     {},
     { readOnlyHint: false },
     async () => {

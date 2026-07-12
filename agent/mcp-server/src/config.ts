@@ -16,6 +16,16 @@ const REQUIRED_ENV_KEYS = [
   "ILIAS_COURSE_ID",
 ] as const;
 
+function credentialsHint(): string {
+  const home = process.env.ILIAS_PORTAL_HOME;
+  const path =
+    process.env.DOTENV_PATH ??
+    (home
+      ? `${home}/agent/credentials/.env.local`
+      : "agent/credentials/.env.local");
+  return `Copy agent/credentials/.env.local.example to ${path} and fill in all fields.`;
+}
+
 export function getMissingEnvVars(): string[] {
   const missing: string[] = [];
   for (const key of REQUIRED_ENV_KEYS) {
@@ -70,7 +80,7 @@ export function validateEnv(): AppConfig {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}. ` +
-        "Copy agent/credentials/.env.local.example to agent/credentials/.env.local and fill in all fields."
+        credentialsHint()
     );
   }
 
@@ -78,14 +88,14 @@ export function validateEnv(): AppConfig {
   if (!config) {
     throw new Error(
       "ILIAS_COURSE_ID must be a positive 7-digit integer. " +
-        "Set ILIAS_COURSE_ID in agent/credentials/.env.local."
+        "Set ILIAS_COURSE_ID in your .env.local credentials file."
     );
   }
 
   if (!config.iliasUsername.startsWith("zx")) {
     throw new Error(
       "ILIAS_USERNAME must start with 'zx' (e.g. zxofp67). " +
-        "Update agent/credentials/.env.local."
+        "Update ILIAS_USERNAME in your .env.local credentials file."
     );
   }
 

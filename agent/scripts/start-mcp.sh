@@ -3,9 +3,31 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-CREDS_FILE="$REPO_ROOT/agent/credentials/.env.local"
-MCP_DIR="$REPO_ROOT/agent/mcp-server"
+
+resolve_home() {
+  if [[ -n "${ILIAS_PORTAL_HOME:-}" ]]; then
+    echo "$ILIAS_PORTAL_HOME"
+    return
+  fi
+  local candidate
+  candidate="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  if [[ -f "$candidate/install.sh" ]] || [[ -f "$candidate/agent/credentials/.env.local.example" ]]; then
+    echo "$candidate"
+    return
+  fi
+  candidate="$(cd "$SCRIPT_DIR/.." && pwd)"
+  if [[ -f "$candidate/agent/credentials/.env.local.example" ]]; then
+    echo "$candidate"
+    return
+  fi
+  echo "$candidate"
+}
+
+KIT_HOME="$(resolve_home)"
+CREDS_FILE="${DOTENV_PATH:-$KIT_HOME/agent/credentials/.env.local}"
+MCP_DIR="$KIT_HOME/agent/mcp-server"
+
+export ILIAS_PORTAL_HOME="$KIT_HOME"
 
 REQUIRED_VARS=(
   PORTAL_EMAIL

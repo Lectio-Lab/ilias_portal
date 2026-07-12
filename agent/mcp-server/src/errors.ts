@@ -29,7 +29,7 @@ export function mapApiError(
       message: detail,
       recoverable: true,
       action:
-        "Set ILIAS_USERNAME and ILIAS_PASSWORD in agent/credentials/.env.local, then restart MCP.",
+        "Set ILIAS_USERNAME and ILIAS_PASSWORD in your .env.local credentials file, then restart MCP.",
     };
   }
 
