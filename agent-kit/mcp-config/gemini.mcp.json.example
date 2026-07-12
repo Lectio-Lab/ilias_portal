@@ -1,0 +1,10 @@
+# Google Gemini CLI — MCP configuration example
+# Replace {{KIT_HOME}} with the absolute path to your unzipped kit.
+#
+# Add MCP server in Gemini settings (stdio):
+#   command: node
+#   args: ["{{KIT_HOME}}/agent/mcp-server/dist/cli.js"]
+#   env:
+#     ILIAS_PORTAL_HOME: "{{KIT_HOME}}"
+#
+# Install skill from skill/ilias-portal/ into ~/.agents/skills/ilias-portal/
