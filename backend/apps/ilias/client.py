@@ -6,6 +6,7 @@ at runtime). All mutating operations (publish assignment, slides, announcement)
 are ported from the original OvidiusClient in scaping.py.
 """
 
+import os
 import re
 import time
 from typing import Optional
@@ -150,18 +151,31 @@ class IliasClient:
         if not phpsessid or not shibsession:
             from playwright.sync_api import sync_playwright
 
-            print("\n[Playwright] Launching interactive browser for manual authentication & MFA...")
+            print(
+                "\n[Playwright] A browser window will open for university login and MFA..."
+            )
             try:
                 with sync_playwright() as p:
-                    # Launch in visible mode so user can see and complete the form / MFA
-                    browser = p.chromium.launch(headless=False)
+                    launch_kwargs: dict = {"headless": False}
+                    channel = os.environ.get("PLAYWRIGHT_BROWSER_CHANNEL", "").strip()
+                    executable = os.environ.get(
+                        "PLAYWRIGHT_EXECUTABLE_PATH", ""
+                    ).strip()
+                    if channel:
+                        launch_kwargs["channel"] = channel
+                    elif executable:
+                        launch_kwargs["executable_path"] = executable
+
+                    browser = p.chromium.launch(**launch_kwargs)
                     context = browser.new_context()
                     page = context.new_page()
 
                     print("[Playwright] Navigating to login page...")
                     page.goto(f"{BASE_URL}/shib_login.php", wait_until="networkidle")
 
-                    print("[Playwright] Please fill in details and complete MFA in the opened browser window.")
+                    print(
+                        "[Playwright] Complete login and MFA in the browser window."
+                    )
                     print("[Playwright] Waiting for login completion (checking session cookies)...")
 
                     # Try to pre-fill credentials to make it faster
@@ -548,27 +562,33 @@ class IliasClient:
         files: list = None,
     ) -> str:
         """
-        Creates a Folder in the course and uploads files into it.
-        Returns the URL of the created folder.
+        Uploads files to an ILIAS course. Creates a folder when permitted; otherwise
+        uploads directly into the course container.
+        Returns the URL of the created folder or course.
         ``files`` should be a list of dicts:
             [{"filename": str, "content": bytes, "content_type": str}]
         """
         if files is None:
             files = []
 
-        folder_ref_id = self._create_folder(course_id, title, description)
+        try:
+            parent_ref_id = self._create_folder(course_id, title, description)
+            result_url = f"{BASE_URL}/goto.php/fold/{parent_ref_id}"
+        except ValueError:
+            parent_ref_id = course_id
+            result_url = f"{BASE_URL}/goto.php/crs/{course_id}"
 
         for f in files:
             self._upload_file_to_folder(
-                folder_ref_id=folder_ref_id,
+                folder_ref_id=parent_ref_id,
                 filename=f.get("filename", "file"),
                 file_content=f.get("content", b""),
                 content_type=f.get("content_type", "application/octet-stream"),
-                title=f.get("title", f.get("filename", "")),
-                description=f.get("description", ""),
+                title=f.get("title", title or f.get("filename", "")),
+                description=f.get("description", description),
             )
 
-        return f"{BASE_URL}/goto.php/fold/{folder_ref_id}"
+        return result_url
 
     def _create_folder(self, parent_ref_id: int, title: str, description: str) -> int:
         init_url = (
