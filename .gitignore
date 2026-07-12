@@ -40,5 +40,12 @@ agent/tests/eval/results/
 # Docker
 docker-data/
 
+# Agent kit
+dist/
+agent-kit/.run/
+agent-kit/docker-data/
+agent-kit/.mcp.json
+agent-kit/mcp-config/installed/
+
 # Playwright (MFA fallback)
 .playwright/
