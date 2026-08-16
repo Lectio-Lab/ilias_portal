@@ -11,15 +11,30 @@ describe("config", () => {
   it("reports missing env vars", () => {
     process.env = {};
     expect(getMissingEnvVars()).toContain("PORTAL_EMAIL");
-    expect(getMissingEnvVars()).toContain("ILIAS_COURSE_ID");
+    expect(getMissingEnvVars()).toContain("PORTAL_PASSWORD");
     expect(getEnvConfig()).toBeNull();
+  });
+
+  it("supports interactive browser auth without university credentials", () => {
+    process.env = {
+      PORTAL_EMAIL: "local-agent@example.invalid",
+      PORTAL_PASSWORD: "generated-local-secret",
+      API_BASE_URL: "http://localhost:8010/",
+    };
+
+    const config = validateEnv();
+    expect(config.iliasUsername).toBe("");
+    expect(config.iliasPassword).toBe("");
+    expect(config.courseId).toBe(0);
+    expect(config.courseIds).toEqual([]);
+    expect(config.baseUrl).toBe("http://localhost:8010");
   });
 
   it("parses valid env config", () => {
     process.env = {
       PORTAL_EMAIL: "test@example.com",
       PORTAL_PASSWORD: "secret",
-      ILIAS_USERNAME: "zxofp67",
+      ILIAS_USERNAME: "zxuser1",
       ILIAS_PASSWORD: "ilias-secret",
       ILIAS_COURSE_ID: "5658784",
       ILIAS_COURSE_IDS: "5658784,5658785",
@@ -28,7 +43,7 @@ describe("config", () => {
 
     const config = validateEnv();
     expect(config.portalEmail).toBe("test@example.com");
-    expect(config.iliasUsername).toBe("zxofp67");
+    expect(config.iliasUsername).toBe("zxuser1");
     expect(config.courseId).toBe(5658784);
     expect(config.courseIds).toEqual([5658784, 5658785]);
     expect(config.baseUrl).toBe("http://localhost:8000");

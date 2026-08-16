@@ -2,7 +2,9 @@
 
 ## How it works
 
-On MCP startup, credentials from `agent/credentials/.env.local` are synced to the backend API. ILIAS session cookies are established when you call `ilias_refresh_courses`.
+On MCP startup, only a randomly generated local Portal API identity is loaded.
+University credentials remain blank. ILIAS session cookies are established when
+you call `ilias_refresh_courses` and complete login in the visible browser.
 
 The backend runs **on your Mac** (not inside Docker). Postgres runs in Docker.
 

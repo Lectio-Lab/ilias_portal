@@ -81,6 +81,10 @@ class IliasClient:
         shibsession = None
 
         try:
+            if not self.username or not self.password:
+                raise IliasLoginError(
+                    "No university credentials are stored; interactive login required."
+                )
             session = requests.Session()
             session.headers.update(_BROWSER_HEADERS)
 
@@ -178,7 +182,8 @@ class IliasClient:
                     )
                     print("[Playwright] Waiting for login completion (checking session cookies)...")
 
-                    # Try to pre-fill credentials to make it faster
+                    # Pre-fill only when the user explicitly configured credentials.
+                    # Interactive-only mode leaves both fields untouched.
                     try:
                         page.wait_for_selector("input[type='password']", timeout=5000)
                         user_input = page.locator("input[type='text'], input[name*='user' i], input[name*='login' i]")

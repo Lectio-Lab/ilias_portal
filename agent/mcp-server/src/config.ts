@@ -11,9 +11,6 @@ export interface AppConfig {
 const REQUIRED_ENV_KEYS = [
   "PORTAL_EMAIL",
   "PORTAL_PASSWORD",
-  "ILIAS_USERNAME",
-  "ILIAS_PASSWORD",
-  "ILIAS_COURSE_ID",
 ] as const;
 
 function credentialsHint(): string {
@@ -59,7 +56,6 @@ export function getEnvConfig(): AppConfig | null {
   if (missing.length > 0) return null;
 
   const courseIds = parseCourseIds();
-  if (courseIds.length === 0) return null;
 
   return {
     baseUrl: (process.env.API_BASE_URL ?? "http://localhost:8000").replace(
@@ -68,9 +64,9 @@ export function getEnvConfig(): AppConfig | null {
     ),
     portalEmail: process.env.PORTAL_EMAIL!.trim(),
     portalPassword: process.env.PORTAL_PASSWORD!.trim(),
-    iliasUsername: process.env.ILIAS_USERNAME!.trim(),
-    iliasPassword: process.env.ILIAS_PASSWORD!.trim(),
-    courseId: courseIds[0],
+    iliasUsername: process.env.ILIAS_USERNAME?.trim() ?? "",
+    iliasPassword: process.env.ILIAS_PASSWORD?.trim() ?? "",
+    courseId: courseIds[0] ?? 0,
     courseIds,
   };
 }
@@ -85,16 +81,11 @@ export function validateEnv(): AppConfig {
   }
 
   const config = getEnvConfig();
-  if (!config) {
-    throw new Error(
-      "ILIAS_COURSE_ID must be a positive 7-digit integer. " +
-        "Set ILIAS_COURSE_ID in your .env.local credentials file."
-    );
-  }
+  if (!config) throw new Error("Portal configuration is incomplete.");
 
-  if (!config.iliasUsername.startsWith("zx")) {
+  if (config.iliasUsername && !config.iliasUsername.startsWith("zx")) {
     throw new Error(
-      "ILIAS_USERNAME must start with 'zx' (e.g. zxofp67). " +
+      "ILIAS_USERNAME must start with 'zx' and be your own account. " +
         "Update ILIAS_USERNAME in your .env.local credentials file."
     );
   }

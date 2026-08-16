@@ -26,8 +26,10 @@ def _get_ilias_client(user) -> IliasClient:
     try:
         creds = user.ilias_credential
     except IliasCredential.DoesNotExist:
-        raise ValueError(
-            "No ILIAS credentials saved. Please add them via /api/auth/ilias-credentials/"
+        creds = IliasCredential.objects.create(
+            user=user,
+            ilias_username="",
+            ilias_password="",
         )
 
     client = IliasClient(
@@ -356,7 +358,7 @@ class SessionStatusView(APIView):
             return Response(
                 {
                     "valid": False,
-                    "message": "No ILIAS credentials saved. Add them via /api/auth/ilias-credentials/.",
+                    "message": "No active ILIAS session. Refresh courses to open interactive university login.",
                 },
                 status=status.HTTP_200_OK,
             )

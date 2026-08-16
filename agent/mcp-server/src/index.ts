@@ -39,13 +39,13 @@ export function createServer(
 
   server.tool(
     "ilias_check_setup",
-    "Verify env credentials and ILIAS session readiness. Call before publish operations. Credentials come from .env.local via MCP launcher.",
+    "Verify local API configuration and interactive ILIAS session readiness.",
     {},
     { readOnlyHint: true },
     async () => {
       try {
         const missing = getMissingEnvVars();
-        const envConfigured = missing.length === 0 && config.courseIds.length > 0;
+        const envConfigured = missing.length === 0;
 
         let profile: { email: string; first_name: string; last_name: string } | null =
           null;
@@ -67,23 +67,30 @@ export function createServer(
         }
 
         const readyForPublish =
-          envConfigured && (sessionStatus?.valid ?? false);
+          envConfigured &&
+          (sessionStatus?.valid ?? false) &&
+          config.courseIds.length > 0;
 
         return textResult({
           env_configured: envConfigured,
           missing_env_vars: missing,
           portal_user: profile?.email ?? config.portalEmail,
-          ilias_username: config.iliasUsername,
-          course_id: config.courseId,
+          ilias_auth_mode:
+            config.iliasUsername && config.iliasPassword
+              ? "stored_credentials"
+              : "interactive_browser",
+          course_id: config.courseId || null,
           course_ids: config.courseIds,
           ilias_session: sessionStatus,
           ready_for_publish: readyForPublish,
           hint:
             missing.length > 0
               ? "Fill missing vars in .env.local and restart MCP."
-              : !readyForPublish
-                ? "Run ilias_refresh_courses once to establish ILIAS session (MFA may open in browser)."
-                : "Ready to publish.",
+              : !(sessionStatus?.valid ?? false)
+                ? "Run ilias_refresh_courses to open the university login and MFA page."
+                : config.courseIds.length === 0
+                  ? "Interactive session is ready. Provide course_id explicitly for publishing."
+                  : "Ready to publish.",
         });
       } catch (err) {
         return errorResult(err instanceof Error ? err.message : String(err));
@@ -190,6 +197,15 @@ export function createServer(
     async ({ markdown_path, title, course_id }) => {
       const targetCourseId = course_id ?? config.courseId;
       const folderTitle = title ?? titleFromMarkdownPath(markdown_path);
+
+      if (!targetCourseId) {
+        return textResult({
+          success: false,
+          message: "Unable to publish: provide a course_id after interactive login.",
+          error: "No default course configured",
+          retries_attempted: 0,
+        });
+      }
 
       try {
         await access(markdown_path);

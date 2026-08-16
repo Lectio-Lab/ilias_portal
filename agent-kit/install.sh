@@ -18,13 +18,9 @@ PY="$(check_python)"
 echo "Using Python: $PY"
 echo ""
 
-CREDS_EXAMPLE="$(resolve_agent_dir)/credentials/.env.local.example"
 CREDS_FILE="$(resolve_agent_dir)/credentials/.env.local"
 if [[ ! -f "$CREDS_FILE" ]]; then
-  cp "$CREDS_EXAMPLE" "$CREDS_FILE"
-  echo "Created $CREDS_FILE"
-  echo "Edit credentials now, then re-run ./install.sh"
-  "${EDITOR:-nano}" "$CREDS_FILE" || true
+  "$SCRIPT_DIR/scripts/provision-interactive-auth.sh"
   echo ""
 fi
 
@@ -63,11 +59,19 @@ cd "$BACKEND_DIR"
 python manage.py migrate --noinput
 
 MCP_DIR="$(resolve_agent_dir)/mcp-server"
+if [[ ! -d "$MCP_DIR/node_modules" ]]; then
+  echo "Installing MCP server dependencies..."
+  if [[ -f "$MCP_DIR/dist/cli.js" ]]; then
+    (cd "$MCP_DIR" && npm ci --omit=dev)
+  else
+    (cd "$MCP_DIR" && npm ci)
+  fi
+fi
 if [[ ! -f "$MCP_DIR/dist/cli.js" ]]; then
   echo "Building MCP server..."
-  (cd "$MCP_DIR" && npm ci --omit=dev && npm run build)
+  (cd "$MCP_DIR" && npm run build)
 else
-  echo "MCP dist/ present; skipping build (run npm ci in agent/mcp-server if needed)."
+  echo "MCP server dependencies and dist/ are present."
 fi
 
 chmod +x "$ILIAS_PORTAL_HOME"/install.sh \
@@ -88,9 +92,9 @@ fi
 
 echo ""
 echo "=== Install complete ==="
-echo "1. Ensure credentials are filled: agent/credentials/.env.local"
-echo "2. Run: ./start.sh"
-echo "3. Register MCP (see mcp-config/installed/ or INSTALL.md)"
-echo "4. Install skill: copy skill/ilias-portal to your agent's skills folder"
+echo "1. Run: ./start.sh"
+echo "2. Register MCP (see mcp-config/installed/ or INSTALL.md)"
+echo "3. Install skill: copy skill/ilias-portal to your agent's skills folder"
+echo "4. Refresh courses and complete university login/MFA in the browser"
 echo ""
 echo "Sample prompt: Check my ILIAS setup and list my courses."

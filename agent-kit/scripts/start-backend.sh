@@ -40,6 +40,7 @@ elif [[ -f "$BACKEND_DIR/.env" ]]; then
 fi
 
 cd "$BACKEND_DIR"
-nohup python manage.py runserver 0.0.0.0:8000 >"$LOG_FILE" 2>&1 &
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+nohup python manage.py runserver "0.0.0.0:$BACKEND_PORT" >"$LOG_FILE" 2>&1 &
 echo $! >"$PID_FILE"
-echo "Backend started (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"
+echo "Backend started on :$BACKEND_PORT (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"

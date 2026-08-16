@@ -20,10 +20,12 @@ export async function bootstrapPortal(
     await tokenManager.login();
   }
 
-  await client.saveIliasCredentials(
-    config.iliasUsername,
-    config.iliasPassword
-  );
+  if (config.iliasUsername && config.iliasPassword) {
+    await client.saveIliasCredentials(
+      config.iliasUsername,
+      config.iliasPassword
+    );
+  }
 
   return client;
 }
