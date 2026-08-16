@@ -18,6 +18,7 @@ Ship ILIAS automation to any MCP-capable AI agent (Cursor, Claude Code, Claude D
 - "Refresh my ILIAS courses" (complete MFA if browser opens)
 - "Publish agent/samples/what-is-machine-learning.md as lecture slides"
 - "Show contents of my default ILIAS course"
+- "Find exercise CNN Homework, show me its current content, then update its instructions"
 
 ## Stop
 

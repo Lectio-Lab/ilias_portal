@@ -2,15 +2,17 @@
 name: ilias-portal
 description: >-
   Operate ILIAS courses via the ILIAS Portal API: publish markdown as PDF slides,
-  upload files, post announcements, and manage course content. Use when the user
-  mentions ILIAS, Ovidius, university courses, lecture slides, exercises,
-  Übungen, course announcements, or academic platform tasks.
+  upload files, post announcements, find course items, and safely edit existing
+  exercise content. Use when the user mentions ILIAS, Ovidius, university
+  courses, lecture slides, exercises, Übungen, editing an exercise, changing an
+  assignment deadline or instructions, course announcements, or academic
+  platform tasks.
 compatibility: >-
   Requires ILIAS Portal Agent Kit running (./start.sh), ilias-portal MCP server,
   Node 18+, Docker Desktop, and a generated local Portal API identity.
 metadata:
   mcp-server: ilias-portal
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # ILIAS Portal Agent Skill
@@ -51,6 +53,8 @@ Never ask the user to send a university password in chat.
 | Create assignment | `ilias_publish_assignment` |
 | Post announcement | `ilias_publish_announcement` |
 | Browse course contents | `ilias_get_course_contents` |
+| Find an item from a title/query | `ilias_find_course_items` |
+| Edit an existing exercise | `ilias_edit_exercise` |
 
 ## Course selection
 
@@ -71,6 +75,25 @@ After interactive login, use the returned course list and ask the user to select
    - `course_id`: optional, defaults to env
 4. Report outcome clearly
 
+## Edit existing exercise workflow
+
+1. Call `ilias_find_course_items` with the course ID, the user's identifying
+   words, and `item_type: "Exercise"`.
+2. If there are no matches, report that and ask for a different title or course.
+3. If multiple plausible matches remain, show their titles, sections, and URLs;
+   ask the user which one they mean. Never select the first result silently.
+4. Show the selected exercise's current content and exact URL. If it has multiple
+   assignment units, resolve the exact `assignment_id`.
+5. Confirm the concrete before/after changes with the user.
+6. Call `ilias_edit_exercise` once with the exact returned URL and current exact
+   title as `expected_title`. For each changed content field, also pass its
+   current value from discovery (`expected_description`,
+   `expected_assignment_title`, `expected_instruction`, or
+   `expected_deadline`). Do not retry this write automatically.
+7. Only report success when the tool returns `verified: true`. Include the
+   returned updated URL. Otherwise state that the update was not verified and
+   include the actionable error and URL.
+
 ## MFA recovery
 
 If ILIAS auth fails:
@@ -86,6 +109,8 @@ See [references/mfa-setup.md](references/mfa-setup.md).
 - Mention frontend or website credential pages
 - Pass or request passwords in chat or tool arguments
 - Retry auth failures blindly in a loop
+- Guess an item URL, silently resolve an ambiguous match, or report an edit
+  before the post-update verification succeeds
 
 ## Additional resources
 

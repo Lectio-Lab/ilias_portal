@@ -163,6 +163,106 @@ export class PortalClient {
     }>(`/api/ilias/courses/${courseId}/contents/`);
   }
 
+  async findCourseItems(
+    courseId: number,
+    query: string,
+    itemType?: string,
+    limit = 10
+  ) {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    if (itemType) params.set("type", itemType);
+    return this.requestJson<{
+      course_id: number;
+      course_title: string | null;
+      query: string;
+      count: number;
+      total_matches: number;
+      matches: Array<{
+        title: string;
+        url: string;
+        type: string | null;
+        section: string;
+        ref_id: number | null;
+        match_score: number;
+        match_reason: string;
+        properties: Record<string, string>;
+        content?: {
+          ref_id: number;
+          title: string;
+          description: string | null;
+          url: string;
+          editable: boolean;
+          assignments: Array<{
+            id: number;
+            title: string;
+            instruction: string;
+            deadline: string | null;
+            deadline_mode: string;
+            type: string;
+          }>;
+        };
+        content_error?: string;
+      }>;
+    }>(`/api/ilias/courses/${courseId}/items/search/?${params.toString()}`);
+  }
+
+  async editExercise(
+    courseId: number,
+    data: {
+      exerciseUrl: string;
+      expectedTitle: string;
+      expectedDescription?: string | null;
+      expectedAssignmentTitle?: string;
+      expectedInstruction?: string;
+      expectedDeadline?: string | null;
+      title?: string;
+      description?: string;
+      assignmentId?: number;
+      assignmentTitle?: string;
+      instruction?: string;
+      deadline?: string;
+    }
+  ) {
+    return this.requestJson<{
+      success: boolean;
+      verified: boolean;
+      url: string;
+      updated_fields: string[];
+      exercise: {
+        ref_id: number;
+        title: string;
+        description: string | null;
+        url: string;
+        editable: boolean;
+      };
+      assignment: {
+        id: number;
+        title: string;
+        instruction: string;
+        deadline: string | null;
+        deadline_mode: string;
+        type: string;
+      } | null;
+    }>(`/api/ilias/courses/${courseId}/items/exercise/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        exercise_url: data.exerciseUrl,
+        expected_title: data.expectedTitle,
+        expected_description: data.expectedDescription,
+        expected_assignment_title: data.expectedAssignmentTitle,
+        expected_instruction: data.expectedInstruction,
+        expected_deadline: data.expectedDeadline,
+        title: data.title,
+        description: data.description,
+        assignment_id: data.assignmentId,
+        assignment_title: data.assignmentTitle,
+        instruction: data.instruction,
+        deadline: data.deadline,
+      }),
+    });
+  }
+
   async downloadFile(url: string) {
     const encoded = encodeURIComponent(url);
     const response = await this.tokenManager.authenticatedFetch(

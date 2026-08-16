@@ -51,7 +51,15 @@ Cursor Agent → MCP (stdio) → Django API :8000 → ILIAS
 | `ilias_publish_assignment` | Create exercise |
 | `ilias_publish_announcement` | Post news |
 | `ilias_get_course_contents` | Browse course |
+| `ilias_find_course_items` | Find live items and fetch current exercise content |
+| `ilias_edit_exercise` | Edit and verify an exact exercise URL |
 | `ilias_download_file` | Download from ILIAS |
+
+Exercise edits use a guarded two-step flow: find candidates first, resolve any
+ambiguity, then edit the exact returned URL. The edit endpoint verifies that the
+exercise still belongs to the requested course and that its title has not
+changed, applies the requested fields once, re-fetches ILIAS, and returns the
+verified URL.
 
 ## Demo sample
 
