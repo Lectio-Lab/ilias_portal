@@ -42,7 +42,10 @@
 
 ## MFA
 
-When `ilias_refresh_courses` runs, a browser window opens on your desktop (Chrome if installed). Complete university login and MFA there.
+Run `scripts/provision-interactive-auth.sh` once. When `ilias_refresh_courses`
+runs, a browser window opens on your desktop (Chrome if installed). Enter your
+university credentials and complete MFA only there; they are not stored in the
+agent credential file.
 
 Logs: `.run/backend.log`
 

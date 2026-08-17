@@ -115,6 +115,8 @@ async function main() {
     "ilias_list_courses",
     "ilias_refresh_courses",
     "ilias_get_course_contents",
+    "ilias_find_course_items",
+    "ilias_edit_exercise",
     "ilias_download_file",
     "ilias_publish_markdown_as_slides",
     "ilias_publish_assignment",

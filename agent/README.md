@@ -5,9 +5,8 @@ Agent-only ILIAS publishing from Cursor chat. No frontend required.
 ## Quick start
 
 ```bash
-# 1. Configure credentials (gitignored)
-cp agent/credentials/.env.local.example agent/credentials/.env.local
-# Edit: PORTAL_EMAIL, PORTAL_PASSWORD, ILIAS_USERNAME, ILIAS_PASSWORD, ILIAS_COURSE_ID
+# 1. Generate a unique local API identity (university credentials stay blank)
+./scripts/provision-interactive-auth.sh
 
 # 2. Start backend + database
 docker compose up -d
@@ -24,13 +23,14 @@ docker compose up -d
 |----------|---------|
 | `PORTAL_EMAIL` | Django portal API login |
 | `PORTAL_PASSWORD` | Django portal API password |
-| `ILIAS_USERNAME` | zx account (7 chars, e.g. zxofp67) |
+| `ILIAS_USERNAME` | Your zx account (7 characters) |
 | `ILIAS_PASSWORD` | University ILIAS password |
 | `ILIAS_COURSE_ID` | Default 7-digit course ref ID |
 | `ILIAS_COURSE_IDS` | Optional comma-separated course IDs |
 | `API_BASE_URL` | Default `http://localhost:8000` |
 
-MCP syncs ILIAS credentials to the backend on every startup. No website visit needed.
+MCP never stores university credentials in interactive mode. Refreshing courses
+opens a visible university login/MFA browser and stores only the resulting session cookies.
 
 ## Architecture
 
@@ -51,7 +51,15 @@ Cursor Agent → MCP (stdio) → Django API :8000 → ILIAS
 | `ilias_publish_assignment` | Create exercise |
 | `ilias_publish_announcement` | Post news |
 | `ilias_get_course_contents` | Browse course |
+| `ilias_find_course_items` | Find live items and fetch current exercise content |
+| `ilias_edit_exercise` | Edit and verify an exact exercise URL |
 | `ilias_download_file` | Download from ILIAS |
+
+Exercise edits use a guarded two-step flow: find candidates first, resolve any
+ambiguity, then edit the exact returned URL. The edit endpoint verifies that the
+exercise still belongs to the requested course and that its title has not
+changed, applies the requested fields once, re-fetches ILIAS, and returns the
+verified URL.
 
 ## Demo sample
 

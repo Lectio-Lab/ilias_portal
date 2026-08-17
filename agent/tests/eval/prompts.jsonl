@@ -17,5 +17,7 @@
 {"prompt": "Get the latest course list from Ovidius ILIAS", "expected_tools": ["ilias_refresh_courses"], "max_calls": 1}
 {"prompt": "Show announcements I could post to my course", "expected_tools": ["ilias_list_courses"], "max_calls": 2}
 {"prompt": "I need to see files in my statistics course", "expected_tools": ["ilias_list_courses", "ilias_get_course_contents"], "max_calls": 3}
+{"prompt": "Find the exercise called CNN Homework and show me its current instructions", "expected_tools": ["ilias_find_course_items"], "max_calls": 2}
+{"prompt": "Change the instructions in exercise CNN Homework to require a confusion matrix", "expected_tools": ["ilias_find_course_items", "ilias_edit_exercise"], "max_calls": 3, "requires_confirmation": true}
 {"prompt": "Help me set up ILIAS for the first time", "expected_tools": ["ilias_check_setup"], "max_calls": 2}
 {"prompt": "Publish the ML sample markdown to ILIAS as a PDF", "expected_tools": ["ilias_check_setup", "ilias_publish_markdown_as_slides"], "max_calls": 4}

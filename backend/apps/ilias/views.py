@@ -13,6 +13,7 @@ from .models import CourseCache
 from .serializers import (
     CourseCacheSerializer,
     CourseContentsSerializer,
+    EditExerciseSerializer,
     PublishAnnouncementSerializer,
     PublishAssignmentSerializer,
 )
@@ -26,8 +27,10 @@ def _get_ilias_client(user) -> IliasClient:
     try:
         creds = user.ilias_credential
     except IliasCredential.DoesNotExist:
-        raise ValueError(
-            "No ILIAS credentials saved. Please add them via /api/auth/ilias-credentials/"
+        creds = IliasCredential.objects.create(
+            user=user,
+            ilias_username="",
+            ilias_password="",
         )
 
     client = IliasClient(
@@ -133,6 +136,87 @@ class CourseContentsView(APIView):
 
         serializer = CourseContentsSerializer(contents)
         return Response(serializer.data)
+
+
+class FindCourseItemsView(APIView):
+    """GET /api/ilias/courses/<course_id>/items/search/?q=..."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id: int):
+        query = request.query_params.get("q", "").strip()
+        item_type = request.query_params.get("type", "").strip() or None
+        if not query:
+            return Response(
+                {"detail": "q is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(query) > 500:
+            return Response(
+                {"detail": "q must be at most 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            limit = int(request.query_params.get("limit", "10"))
+        except ValueError:
+            return Response(
+                {"detail": "limit must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not 1 <= limit <= 20:
+            return Response(
+                {"detail": "limit must be between 1 and 20."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.find_course_items(
+                course_id=course_id,
+                query=query,
+                item_type=item_type,
+                limit=limit,
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to find course items: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result)
+
+
+class EditExerciseView(APIView):
+    """PATCH /api/ilias/courses/<course_id>/items/exercise/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, course_id: int):
+        serializer = EditExerciseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.edit_exercise(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to edit exercise: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class PublishAssignmentView(APIView):
@@ -356,7 +440,7 @@ class SessionStatusView(APIView):
             return Response(
                 {
                     "valid": False,
-                    "message": "No ILIAS credentials saved. Add them via /api/auth/ilias-credentials/.",
+                    "message": "No active ILIAS session. Refresh courses to open interactive university login.",
                 },
                 status=status.HTTP_200_OK,
             )

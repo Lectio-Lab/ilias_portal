@@ -34,18 +34,18 @@ export function createServer(
 ): McpServer {
   const server = new McpServer({
     name: "ilias-portal",
-    version: "1.1.0",
+    version: "1.2.0",
   });
 
   server.tool(
     "ilias_check_setup",
-    "Verify env credentials and ILIAS session readiness. Call before publish operations. Credentials come from .env.local via MCP launcher.",
+    "Verify local API configuration and interactive ILIAS session readiness.",
     {},
     { readOnlyHint: true },
     async () => {
       try {
         const missing = getMissingEnvVars();
-        const envConfigured = missing.length === 0 && config.courseIds.length > 0;
+        const envConfigured = missing.length === 0;
 
         let profile: { email: string; first_name: string; last_name: string } | null =
           null;
@@ -67,23 +67,30 @@ export function createServer(
         }
 
         const readyForPublish =
-          envConfigured && (sessionStatus?.valid ?? false);
+          envConfigured &&
+          (sessionStatus?.valid ?? false) &&
+          config.courseIds.length > 0;
 
         return textResult({
           env_configured: envConfigured,
           missing_env_vars: missing,
           portal_user: profile?.email ?? config.portalEmail,
-          ilias_username: config.iliasUsername,
-          course_id: config.courseId,
+          ilias_auth_mode:
+            config.iliasUsername && config.iliasPassword
+              ? "stored_credentials"
+              : "interactive_browser",
+          course_id: config.courseId || null,
           course_ids: config.courseIds,
           ilias_session: sessionStatus,
           ready_for_publish: readyForPublish,
           hint:
             missing.length > 0
               ? "Fill missing vars in .env.local and restart MCP."
-              : !readyForPublish
-                ? "Run ilias_refresh_courses once to establish ILIAS session (MFA may open in browser)."
-                : "Ready to publish.",
+              : !(sessionStatus?.valid ?? false)
+                ? "Run ilias_refresh_courses to open the university login and MFA page."
+                : config.courseIds.length === 0
+                  ? "Interactive session is ready. Provide course_id explicitly for publishing."
+                  : "Ready to publish.",
         });
       } catch (err) {
         return errorResult(err instanceof Error ? err.message : String(err));
@@ -147,6 +154,181 @@ export function createServer(
   );
 
   server.tool(
+    "ilias_find_course_items",
+    "Search live course items by the user's words and return ranked candidates with their exact ILIAS URLs. Exercise matches include current title, description, assignment instructions, deadline, and assignment IDs when editable. Use this before editing; never guess an item URL or silently choose among ambiguous matches.",
+    {
+      course_id: z.number().int().positive().describe("ILIAS course ID"),
+      query: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe("Words identifying the item, such as its title"),
+      item_type: z
+        .string()
+        .optional()
+        .describe('Optional ILIAS type filter, for example "Exercise"'),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Maximum candidates to return; defaults to 10"),
+    },
+    { readOnlyHint: true },
+    async ({ course_id, query, item_type, limit }) => {
+      try {
+        const result = await client.findCourseItems(
+          course_id,
+          query,
+          item_type,
+          limit
+        );
+        return textResult(result);
+      } catch (err) {
+        return errorResult(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  server.tool(
+    "ilias_edit_exercise",
+    "Edit the exact exercise URL returned by ilias_find_course_items, then re-fetch it and verify the update. Supports the exercise title/description and assignment title/instructions/deadline. Confirm the exact changes with the user before calling. Do not call when search is ambiguous, and do not automatically retry this write.",
+    {
+      course_id: z.number().int().positive().describe("ILIAS course ID"),
+      exercise_url: z
+        .string()
+        .url()
+        .describe("Exact exercise URL returned by ilias_find_course_items"),
+      expected_title: z
+        .string()
+        .min(1)
+        .describe("Current exact exercise title returned by the find tool"),
+      expected_description: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("Current description; required when changing description"),
+      expected_assignment_title: z
+        .string()
+        .optional()
+        .describe("Current assignment title; required when changing it"),
+      expected_instruction: z
+        .string()
+        .optional()
+        .describe("Current instructions; required when changing them"),
+      expected_deadline: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("Current deadline, or null when absent; required when changing it"),
+      title: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("New exercise container title"),
+      description: z
+        .string()
+        .optional()
+        .describe("New exercise container description; may be blank"),
+      assignment_id: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Required for assignment edits when the exercise has multiple units"),
+      assignment_title: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("New assignment-unit title"),
+      instruction: z
+        .string()
+        .optional()
+        .describe("New student-facing assignment instructions; may be blank"),
+      deadline: z
+        .string()
+        .optional()
+        .describe("New DD.MM.YYYY HH:MM deadline; pass an empty string to remove it"),
+    },
+    { destructiveHint: true, idempotentHint: false },
+    async ({
+      course_id,
+      exercise_url,
+      expected_title,
+      expected_description,
+      expected_assignment_title,
+      expected_instruction,
+      expected_deadline,
+      title,
+      description,
+      assignment_id,
+      assignment_title,
+      instruction,
+      deadline,
+    }) => {
+      if (
+        title === undefined &&
+        description === undefined &&
+        assignment_title === undefined &&
+        instruction === undefined &&
+        deadline === undefined
+      ) {
+        return errorResult(
+          "Provide at least one field to edit: title, description, assignment_title, instruction, or deadline."
+        );
+      }
+      const missingExpected = [
+        description !== undefined && expected_description === undefined
+          ? "expected_description"
+          : null,
+        assignment_title !== undefined && expected_assignment_title === undefined
+          ? "expected_assignment_title"
+          : null,
+        instruction !== undefined && expected_instruction === undefined
+          ? "expected_instruction"
+          : null,
+        deadline !== undefined && expected_deadline === undefined
+          ? "expected_deadline"
+          : null,
+      ].filter(Boolean);
+      if (missingExpected.length > 0) {
+        return errorResult(
+          `Provide current values from ilias_find_course_items before editing: ${missingExpected.join(", ")}.`
+        );
+      }
+      try {
+        const result = await client.editExercise(course_id, {
+          exerciseUrl: exercise_url,
+          expectedTitle: expected_title,
+          expectedDescription: expected_description,
+          expectedAssignmentTitle: expected_assignment_title,
+          expectedInstruction: expected_instruction,
+          expectedDeadline: expected_deadline,
+          title,
+          description,
+          assignmentId: assignment_id,
+          assignmentTitle: assignment_title,
+          instruction,
+          deadline,
+        });
+        return textResult({
+          ...result,
+          message: `Successfully updated and verified "${result.exercise.title}".`,
+        });
+      } catch (err) {
+        return textResult({
+          success: false,
+          verified: false,
+          message: "Unable to update the exercise.",
+          error: err instanceof Error ? err.message : String(err),
+          url: exercise_url,
+        });
+      }
+    }
+  );
+
+  server.tool(
     "ilias_download_file",
     "Download a file from ILIAS by its URL (from course contents). Returns base64-encoded content and filename.",
     {
@@ -190,6 +372,15 @@ export function createServer(
     async ({ markdown_path, title, course_id }) => {
       const targetCourseId = course_id ?? config.courseId;
       const folderTitle = title ?? titleFromMarkdownPath(markdown_path);
+
+      if (!targetCourseId) {
+        return textResult({
+          success: false,
+          message: "Unable to publish: provide a course_id after interactive login.",
+          error: "No default course configured",
+          retries_attempted: 0,
+        });
+      }
 
       try {
         await access(markdown_path);

@@ -16,6 +16,14 @@ CREDS="$KIT_HOME/agent/credentials/.env.local"
 MCP_CLI="$KIT_HOME/agent/mcp-server/dist/cli.js"
 FAIL=0
 
+if [[ -f "$KIT_HOME/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$KIT_HOME/.env"
+  set +a
+fi
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+
 echo "Kit home: $KIT_HOME"
 
 if [[ ! -f "$CREDS" ]]; then
@@ -32,10 +40,10 @@ else
   echo "OK: MCP server built"
 fi
 
-if curl -sf "http://localhost:8000/admin/login/" -o /dev/null 2>/dev/null; then
-  echo "OK: API responding on :8000"
+if curl -sf "http://localhost:$BACKEND_PORT/admin/login/" -o /dev/null 2>/dev/null; then
+  echo "OK: API responding on :$BACKEND_PORT"
 else
-  echo "WARN: API not reachable on :8000 (run ./start.sh)"
+  echo "WARN: API not reachable on :$BACKEND_PORT (run ./start.sh)"
   FAIL=1
 fi
 
