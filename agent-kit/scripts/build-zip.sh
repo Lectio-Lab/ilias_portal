@@ -44,6 +44,7 @@ chmod +x "$STAGE/agent/scripts/start-mcp.sh"
 mkdir -p "$DIST"
 ZIP_KIT="$DIST/ilias-portal-agent-kit-${VERSION}-macos.zip"
 ZIP_SKILL="$DIST/ilias-portal-skill.zip"
+ZIP_TEACHING_SKILL="$DIST/find-teaching-content-skill.zip"
 
 (
   cd "$(dirname "$STAGE")"
@@ -55,10 +56,14 @@ ZIP_SKILL="$DIST/ilias-portal-skill.zip"
   cd "$STAGE/skill"
   rm -f "$ZIP_SKILL"
   zip -rq "$ZIP_SKILL" ilias-portal
+
+  rm -f "$ZIP_TEACHING_SKILL"
+  zip -rq "$ZIP_TEACHING_SKILL" find-teaching-content
 )
 
 echo ""
 echo "Created:"
 echo "  $ZIP_KIT"
 echo "  $ZIP_SKILL"
-ls -lh "$ZIP_KIT" "$ZIP_SKILL"
+echo "  $ZIP_TEACHING_SKILL"
+ls -lh "$ZIP_KIT" "$ZIP_SKILL" "$ZIP_TEACHING_SKILL"

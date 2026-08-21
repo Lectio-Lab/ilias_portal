@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teaching Content Finder"
+  short_description: "Find and share verified teaching resources"
+  default_prompt: "Use $find-teaching-content to find a strong teaching video for my topic and prepare a short summary."
