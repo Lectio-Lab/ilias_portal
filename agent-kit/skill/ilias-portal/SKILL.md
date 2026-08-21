@@ -5,14 +5,14 @@ description: >-
   upload files, post announcements, find course items, and safely edit existing
   exercise content. Use when the user mentions ILIAS, Ovidius, university
   courses, lecture slides, exercises, Übungen, editing an exercise, changing an
-  assignment deadline or instructions, course announcements, or academic
-  platform tasks.
+  assignment deadline or instructions, editing the last/latest assignment or
+  course content, course announcements, or academic platform tasks.
 compatibility: >-
   Requires ILIAS Portal Agent Kit running (./start.sh), ilias-portal MCP server,
   Node 18+, Docker Desktop, and a generated local Portal API identity.
 metadata:
   mcp-server: ilias-portal
-  version: 1.3.0
+  version: 1.4.0
 ---
 
 # ILIAS Portal Agent Skill
@@ -55,6 +55,7 @@ Never ask the user to send a university password in chat.
 | Browse course contents | `ilias_get_course_contents` |
 | Find an item from a title/query | `ilias_find_course_items` |
 | Edit an existing exercise | `ilias_edit_exercise` |
+| Edit the last/latest content | Resolve the exact item, then `ilias_edit_exercise` |
 
 ## Course selection
 
@@ -93,6 +94,23 @@ After interactive login, use the returned course list and ask the user to select
 7. Only report success when the tool returns `verified: true`. Include the
    returned updated URL. Otherwise state that the update was not verified and
    include the actionable error and URL.
+
+## Edit last/latest content workflow
+
+When the user says "last", "latest", "most recent", or "the assignment we just
+created/edited":
+
+1. Prefer an exact exercise URL from the current request, the open ILIAS page,
+   or the immediately preceding successful find, publish, or edit result.
+2. If there is no known URL, resolve the course and fetch live contents. Use a
+   server-provided creation/start timestamp when available. Never infer recency
+   from visual page order, search ranking, title numbering, or a stale cache.
+3. If recency cannot be proved or multiple candidates remain, show their titles
+   and URLs and ask the user to select one. Do not write yet.
+4. Re-fetch the chosen item's current title, instructions, deadline, and
+   assignment IDs immediately before editing.
+5. Follow the existing exercise-edit workflow, including current `expected_*`
+   values, one write attempt, post-update verification, and the returned URL.
 
 ## MFA recovery
 

@@ -68,3 +68,29 @@ Agent steps:
 8. If the server reports a stale title, missing course membership, ambiguity, or
    failed verification, stop. Re-run discovery only after explaining the issue;
    never blindly retry the edit.
+
+## Workflow 6: Edit the last or latest course content
+
+User prompt example:
+
+> Update the last assignment: extend the deadline to Friday and append a Java deployment task.
+
+Resolution order:
+
+1. Exact URL in the user's request or currently open ILIAS page.
+2. Exact URL returned by the immediately preceding successful publish, find, or
+   edit operation in the same conversation.
+3. Most recent live item only when ILIAS exposes a reliable creation or start
+   timestamp.
+4. User selection from candidate titles and URLs when none of the above proves
+   which item is latest.
+
+After resolution:
+
+1. Fetch current content from ILIAS; do not reuse old instructions or deadline.
+2. Preserve text the user did not ask to change. For additions, append a clearly
+   titled section without duplicating an existing section.
+3. Use the current values as `expected_*` arguments and call
+   `ilias_edit_exercise` once.
+4. Re-fetch and verify every changed field. Report success only with
+   `verified: true`, and always include the updated exercise URL.
