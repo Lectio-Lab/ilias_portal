@@ -45,6 +45,7 @@ mkdir -p "$DIST"
 ZIP_KIT="$DIST/ilias-portal-agent-kit-${VERSION}-macos.zip"
 ZIP_SKILL="$DIST/ilias-portal-skill.zip"
 ZIP_TEACHING_SKILL="$DIST/find-teaching-content-skill.zip"
+ZIP_HERO_SKILL="$DIST/hero-content-maker-skill.zip"
 
 (
   cd "$(dirname "$STAGE")"
@@ -59,6 +60,9 @@ ZIP_TEACHING_SKILL="$DIST/find-teaching-content-skill.zip"
 
   rm -f "$ZIP_TEACHING_SKILL"
   zip -rq "$ZIP_TEACHING_SKILL" find-teaching-content
+
+  rm -f "$ZIP_HERO_SKILL"
+  zip -rq "$ZIP_HERO_SKILL" hero-content-maker
 )
 
 echo ""
@@ -66,4 +70,5 @@ echo "Created:"
 echo "  $ZIP_KIT"
 echo "  $ZIP_SKILL"
 echo "  $ZIP_TEACHING_SKILL"
-ls -lh "$ZIP_KIT" "$ZIP_SKILL" "$ZIP_TEACHING_SKILL"
+echo "  $ZIP_HERO_SKILL"
+ls -lh "$ZIP_KIT" "$ZIP_SKILL" "$ZIP_TEACHING_SKILL" "$ZIP_HERO_SKILL"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hero Content Maker"
+  short_description: "Build polished three-part ILIAS lesson packs"
+  default_prompt: "Use $hero-content-maker to create a complete lesson pack for my topic and publish it to ILIAS."
