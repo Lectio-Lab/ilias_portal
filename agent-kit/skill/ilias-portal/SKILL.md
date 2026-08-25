@@ -19,7 +19,7 @@ Agent-only workflow. No frontend. Configuration lives in `agent/credentials/.env
 ## Compatibility
 
 Requires ILIAS Portal Agent Kit running (`./start.sh`), the `ilias-portal` MCP
-server, Node 18+, Docker Desktop, and a generated local Portal API identity.
+server, Node 22.12+, Docker Desktop, and a generated local Portal API identity.
 
 ## Prerequisites
 

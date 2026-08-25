@@ -1,4 +1,4 @@
-# Prof. Gehler Quickstart
+# Instructor Quickstart
 
 This kit connects an MCP-capable agent to Ovidius ILIAS. University credentials
 and MFA are entered only in the visible university browser window.

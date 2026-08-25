@@ -49,12 +49,20 @@ require_cmd() {
 }
 
 version_ge() {
-  # usage: version_ge 18 18.0.0
-  local min_major="$1"
-  local current="$2"
-  local major
-  major="$(echo "$current" | sed -E 's/^v?([0-9]+).*/\1/')"
-  [[ "$major" -ge "$min_major" ]]
+  # usage: version_ge 22.12.0 v22.12.1
+  local minimum="${1#v}"
+  local current="${2#v}"
+  local min_major min_minor min_patch cur_major cur_minor cur_patch
+  IFS=. read -r min_major min_minor min_patch <<<"$minimum"
+  IFS=. read -r cur_major cur_minor cur_patch <<<"$current"
+  min_minor="${min_minor:-0}"
+  min_patch="${min_patch:-0}"
+  cur_minor="${cur_minor:-0}"
+  cur_patch="${cur_patch%%[^0-9]*}"
+  cur_patch="${cur_patch:-0}"
+  (( cur_major > min_major )) ||
+    (( cur_major == min_major && cur_minor > min_minor )) ||
+    (( cur_major == min_major && cur_minor == min_minor && cur_patch >= min_patch ))
 }
 
 check_docker() {
@@ -74,7 +82,7 @@ check_docker() {
 
 check_node() {
   if ! command -v node >/dev/null 2>&1; then
-    echo "Node.js is not installed (need 18+)."
+    echo "Node.js is not installed (need 22.12+)."
     if command -v brew >/dev/null 2>&1; then
       echo "Run: brew install node@22"
     fi
@@ -82,8 +90,8 @@ check_node() {
   fi
   local ver
   ver="$(node -v)"
-  if ! version_ge 18 "$ver"; then
-    echo "Node.js $ver is too old (need 18+)."
+  if ! version_ge 22.12.0 "$ver"; then
+    echo "Node.js $ver is too old (need 22.12+)."
     return 1
   fi
 }

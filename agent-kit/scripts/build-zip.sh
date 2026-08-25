@@ -18,7 +18,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 # Kit scaffolding (install, compose, scripts, skill, mcp-config)
-cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/PROF-GEHLER-QUICKSTART.md" "$KIT_SRC/install.sh" \
+cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/QUICKSTART.md" "$KIT_SRC/install.sh" \
   "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/docker-compose.yml" \
   "$KIT_SRC/.env.example" "$STAGE/"
 mkdir -p "$STAGE/scripts"
