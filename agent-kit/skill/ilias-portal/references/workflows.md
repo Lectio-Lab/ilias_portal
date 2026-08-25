@@ -94,3 +94,22 @@ After resolution:
    `ilias_edit_exercise` once.
 4. Re-fetch and verify every changed field. Report success only with
    `verified: true`, and always include the updated exercise URL.
+
+## Workflow 7: Post a supplied grade for one participant
+
+User prompt example:
+
+> For assignment 7 in CNN Homework, set ILIAS login ada to passed with mark 1.3 and comment “Good work.”
+
+Agent steps:
+
+1. Treat the instructor's status, mark, and comment as fixed input. Do not
+   calculate, recommend, normalize, or infer any grade value.
+2. Resolve the exact course, exercise URL, assignment ID, and participant login.
+3. Call `ilias_find_grade_target`; never use a partial login or request a roster.
+4. Present the exact target and current/proposed values, then obtain explicit
+   confirmation immediately before posting.
+5. Call `ilias_post_grade` once with the discovery result's current values as
+   `expected_*` fields and only the confirmed replacements.
+6. Report success only when `verified` is true. A stale-value or ambiguous-target
+   response is a hard stop, not a reason to retry the write.

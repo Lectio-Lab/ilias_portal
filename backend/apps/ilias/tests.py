@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from django.test import SimpleTestCase
 
 from .client import IliasClient
-from .serializers import EditExerciseSerializer
+from .serializers import EditExerciseSerializer, PostGradeSerializer
 
 
 class FakeResponse:
@@ -293,3 +293,190 @@ class EditExerciseSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("DD.MM.YYYY HH:MM", str(serializer.errors))
+
+
+class GradePostingTests(SimpleTestCase):
+    exercise_url = "https://ovidius.uni-tuebingen.de/goto.php/exc/123"
+    grading_url = "https://ovidius.uni-tuebingen.de/goto.php?target=exc_123_7_grades"
+
+    @staticmethod
+    def grade_page(status="notgraded", mark="", comment="Needs review"):
+        options = []
+        for value in ("notgraded", "passed", "failed"):
+            selected = " selected" if value == status else ""
+            options.append(f'<option value="{value}"{selected}>{value}</option>')
+        return f"""
+        <main>
+          <a href="/ilias.php?cmd=showParticipant&amp;part_id=41">
+            Ada Lovelace [ada]
+          </a>
+          <a href="/ilias.php?cmd=showParticipant&amp;part_id=42">
+            Grace Hopper [grace]
+          </a>
+          <form action="/ilias.php?cmd=saveEvaluationFromModal&amp;ass_id=7">
+            <select name="grade">{''.join(options)}</select>
+            <input name="mark" value="{mark}">
+            <input name="mem_id" value="41">
+            <textarea name="comment">{comment}</textarea>
+          </form>
+          <form action="/ilias.php?cmd=saveEvaluationFromModal&amp;ass_id=7">
+            <select name="grade"><option value="notgraded" selected>notgraded</option></select>
+            <input name="mark" value="">
+            <input name="mem_id" value="42">
+            <textarea name="comment"></textarea>
+          </form>
+        </main>
+        """
+
+    def setUp(self):
+        self.client = IliasClient("", "")
+        self.client.get_course_contents = MagicMock(
+            return_value={
+                "sections": [
+                    {
+                        "section": "Exercises",
+                        "items": [
+                            {
+                                "title": "Homework",
+                                "url": self.exercise_url,
+                                "type": "Exercise",
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+        self.client.get_exercise_details = MagicMock(
+            return_value={
+                "title": "Homework",
+                "assignments": [{"id": 7, "title": "Part 1"}],
+            }
+        )
+
+    def test_resolves_only_the_exact_participant_login(self):
+        self.client.session = MagicMock()
+        self.client.session.get.return_value = FakeResponse(
+            self.grade_page(), self.grading_url
+        )
+
+        target = self.client.get_grade_target(
+            course_id=99,
+            exercise_url=self.exercise_url,
+            assignment_id=7,
+            participant_login="ada",
+        )
+
+        self.assertEqual(target["participant_name"], "Ada Lovelace")
+        self.assertEqual(target["status"], "notgraded")
+        self.assertEqual(target["mark"], "")
+        self.assertEqual(target["comment"], "Needs review")
+
+    def test_rejects_stale_grade_before_writing(self):
+        self.client.session = MagicMock()
+        self.client.session.get.return_value = FakeResponse(
+            self.grade_page(mark="1.7"), self.grading_url
+        )
+
+        with self.assertRaisesRegex(ValueError, "changed since discovery"):
+            self.client.post_grade(
+                course_id=99,
+                exercise_url=self.exercise_url,
+                assignment_id=7,
+                participant_login="ada",
+                expected_exercise_title="Homework",
+                expected_assignment_title="Part 1",
+                expected_status="notgraded",
+                expected_mark="",
+                expected_comment="Needs review",
+                mark="1.3",
+            )
+
+        self.client.session.post.assert_not_called()
+
+    def test_posts_supplied_grade_once_and_verifies(self):
+        self.client.session = MagicMock()
+        self.client.session.get.side_effect = [
+            FakeResponse(self.grade_page(), self.grading_url),
+            FakeResponse(
+                self.grade_page(status="passed", mark="1.3", comment="Good work"),
+                self.grading_url,
+            ),
+        ]
+        self.client.session.post.return_value = FakeResponse(
+            "<div class='alert-success'>Saved</div>", self.grading_url
+        )
+
+        result = self.client.post_grade(
+            course_id=99,
+            exercise_url=self.exercise_url,
+            assignment_id=7,
+            participant_login="ada",
+            expected_exercise_title="Homework",
+            expected_assignment_title="Part 1",
+            expected_status="notgraded",
+            expected_mark="",
+            expected_comment="Needs review",
+            status="passed",
+            mark="1.3",
+            comment="Good work",
+        )
+
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["updated_fields"], ["status", "mark", "comment"])
+        self.client.session.post.assert_called_once()
+        posted = dict(self.client.session.post.call_args.kwargs["data"])
+        self.assertEqual(posted["grade"], "passed")
+        self.assertEqual(posted["mark"], "1.3")
+        self.assertEqual(posted["comment"], "Good work")
+        self.assertEqual(posted["mem_id"], "41")
+
+    def test_rejects_non_exact_participant_login(self):
+        self.client.session = MagicMock()
+        self.client.session.get.return_value = FakeResponse(
+            self.grade_page(), self.grading_url
+        )
+
+        with self.assertRaisesRegex(ValueError, "No exact participant login"):
+            self.client.get_grade_target(
+                course_id=99,
+                exercise_url=self.exercise_url,
+                assignment_id=7,
+                participant_login="ad",
+            )
+
+
+class PostGradeSerializerTests(SimpleTestCase):
+    def test_requires_at_least_one_replacement_field(self):
+        serializer = PostGradeSerializer(
+            data={
+                "exercise_url": "https://ovidius.uni-tuebingen.de/goto.php/exc/123",
+                "assignment_id": 7,
+                "participant_login": "ada",
+                "expected_exercise_title": "Homework",
+                "expected_assignment_title": "Part 1",
+                "expected_status": "notgraded",
+                "expected_mark": "",
+                "expected_comment": "Needs review",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("at least one grade field", str(serializer.errors))
+
+    def test_rejects_unknown_status(self):
+        serializer = PostGradeSerializer(
+            data={
+                "exercise_url": "https://ovidius.uni-tuebingen.de/goto.php/exc/123",
+                "assignment_id": 7,
+                "participant_login": "ada",
+                "expected_exercise_title": "Homework",
+                "expected_assignment_title": "Part 1",
+                "expected_status": "notgraded",
+                "expected_mark": "",
+                "expected_comment": None,
+                "status": "excellent",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("valid choice", str(serializer.errors))

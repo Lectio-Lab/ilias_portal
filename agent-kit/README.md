@@ -20,8 +20,13 @@ Ship ILIAS automation to any MCP-capable AI agent (Cursor, Claude Code, Claude D
 - "Publish agent/samples/what-is-machine-learning.md as lecture slides"
 - "Show contents of my default ILIAS course"
 - "Find exercise CNN Homework, show me its current content, then update its instructions"
+- "For assignment 7 in CNN Homework, show the current grade for exact login ada before changing anything"
 - "Find a strong beginner YouTube lesson about CNNs and summarize it"
 - "Find an ONNX teaching video and add the selected link and summary to ILIAS"
+
+Grade values must come directly from the instructor. The agent resolves one exact
+participant, shows the current and proposed values, asks for confirmation, and
+posts once with verification; it does not calculate or recommend grades.
 
 ## Stop
 
@@ -32,3 +37,4 @@ Ship ILIAS automation to any MCP-capable AI agent (Cursor, Claude Code, Claude D
 ## More help
 
 See [INSTALL.md](INSTALL.md) for per-agent setup and troubleshooting.
+Prof. Gehler can start with [PROF-GEHLER-QUICKSTART.md](PROF-GEHLER-QUICKSTART.md).

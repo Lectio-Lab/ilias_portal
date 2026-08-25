@@ -34,7 +34,7 @@ export function createServer(
 ): McpServer {
   const server = new McpServer({
     name: "ilias-portal",
-    version: "1.2.0",
+    version: "1.3.0",
   });
 
   server.tool(
@@ -321,6 +321,143 @@ export function createServer(
           success: false,
           verified: false,
           message: "Unable to update the exercise.",
+          error: err instanceof Error ? err.message : String(err),
+          url: exercise_url,
+        });
+      }
+    }
+  );
+
+  server.tool(
+    "ilias_find_grade_target",
+    "Resolve one exact exercise participant and return the current assignment status, mark, and tutor comment. Use the exact participant login supplied by the instructor. This tool never lists the full roster and never changes a grade.",
+    {
+      course_id: z.number().int().positive().describe("ILIAS course ID"),
+      exercise_url: z
+        .string()
+        .url()
+        .describe("Exact exercise URL returned by ilias_find_course_items"),
+      assignment_id: z
+        .number()
+        .int()
+        .positive()
+        .describe("Exact assignment ID returned by ilias_find_course_items"),
+      participant_login: z
+        .string()
+        .min(1)
+        .max(255)
+        .describe("Exact ILIAS login supplied by the instructor"),
+    },
+    { readOnlyHint: true },
+    async ({ course_id, exercise_url, assignment_id, participant_login }) => {
+      try {
+        const result = await client.findGradeTarget(course_id, {
+          exerciseUrl: exercise_url,
+          assignmentId: assignment_id,
+          participantLogin: participant_login,
+        });
+        return textResult(result);
+      } catch (err) {
+        return errorResult(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  server.tool(
+    "ilias_post_grade",
+    "Post instructor-supplied grading fields for one exact exercise participant, then re-fetch and verify them. Never calculate, recommend, infer, or choose a grade. First call ilias_find_grade_target, show the exact target and before/after values, and obtain explicit instructor confirmation. Do not retry this write automatically.",
+    {
+      course_id: z.number().int().positive().describe("ILIAS course ID"),
+      exercise_url: z
+        .string()
+        .url()
+        .describe("Exact exercise URL used for grade-target discovery"),
+      assignment_id: z
+        .number()
+        .int()
+        .positive()
+        .describe("Exact assignment ID used for grade-target discovery"),
+      participant_login: z
+        .string()
+        .min(1)
+        .max(255)
+        .describe("Exact ILIAS login supplied by the instructor"),
+      expected_exercise_title: z
+        .string()
+        .min(1)
+        .describe("Current exact exercise title from ilias_find_grade_target"),
+      expected_assignment_title: z
+        .string()
+        .min(1)
+        .describe("Current exact assignment title from ilias_find_grade_target"),
+      expected_status: z
+        .enum(["notgraded", "passed", "failed"])
+        .describe("Current status from ilias_find_grade_target"),
+      expected_mark: z
+        .string()
+        .max(32)
+        .describe("Current mark from ilias_find_grade_target; may be blank"),
+      expected_comment: z
+        .string()
+        .nullable()
+        .describe("Current tutor comment from ilias_find_grade_target, or null"),
+      status: z
+        .enum(["notgraded", "passed", "failed"])
+        .optional()
+        .describe("New instructor-supplied status"),
+      mark: z
+        .string()
+        .max(32)
+        .optional()
+        .describe("New instructor-supplied mark; may be blank"),
+      comment: z
+        .string()
+        .optional()
+        .describe("New instructor-supplied tutor comment; may be blank"),
+    },
+    { destructiveHint: true, idempotentHint: false },
+    async ({
+      course_id,
+      exercise_url,
+      assignment_id,
+      participant_login,
+      expected_exercise_title,
+      expected_assignment_title,
+      expected_status,
+      expected_mark,
+      expected_comment,
+      status,
+      mark,
+      comment,
+    }) => {
+      if (status === undefined && mark === undefined && comment === undefined) {
+        return errorResult(
+          "Provide at least one instructor-supplied field: status, mark, or comment."
+        );
+      }
+      try {
+        const result = await client.postGrade(course_id, {
+          exerciseUrl: exercise_url,
+          assignmentId: assignment_id,
+          participantLogin: participant_login,
+          expectedExerciseTitle: expected_exercise_title,
+          expectedAssignmentTitle: expected_assignment_title,
+          expectedStatus: expected_status,
+          expectedMark: expected_mark,
+          expectedComment: expected_comment,
+          status,
+          mark,
+          comment,
+        });
+        return textResult({
+          ...result,
+          message: `Successfully posted and verified the supplied grade for ${result.grade.participant_login}.`,
+        });
+      } catch (err) {
+        return textResult({
+          success: false,
+          verified: false,
+          message: "Unable to post or verify the supplied grade.",
           error: err instanceof Error ? err.message : String(err),
           url: exercise_url,
         });

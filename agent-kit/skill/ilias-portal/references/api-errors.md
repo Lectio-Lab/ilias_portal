@@ -51,3 +51,21 @@
 **Action:**
 1. Verify tutor/moderator role on `ILIAS_COURSE_ID`
 2. Confirm course ID is correct
+
+## Grade target not found or ambiguous (422)
+
+**Symptom:** `ilias_find_grade_target` cannot resolve one participant or grade form.
+
+**Action:**
+1. Use the exact participant login supplied by the instructor, never a partial name
+2. Verify the assignment ID belongs to the resolved exercise
+3. Verify the current ILIAS role has `edit submissions and grades` permission
+
+## Grade target changed (422)
+
+**Symptom:** `ilias_post_grade` reports that an expected field is stale.
+
+**Action:**
+1. Do not retry the write
+2. Run `ilias_find_grade_target` again
+3. Show the new current values and obtain fresh instructor confirmation

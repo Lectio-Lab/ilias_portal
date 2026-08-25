@@ -263,6 +263,87 @@ export class PortalClient {
     });
   }
 
+  async findGradeTarget(
+    courseId: number,
+    data: {
+      exerciseUrl: string;
+      assignmentId: number;
+      participantLogin: string;
+    }
+  ) {
+    const params = new URLSearchParams({
+      exercise_url: data.exerciseUrl,
+      assignment_id: String(data.assignmentId),
+      participant_login: data.participantLogin,
+    });
+    return this.requestJson<{
+      course_id: number;
+      exercise_url: string;
+      exercise_title: string;
+      assignment_id: number;
+      assignment_title: string;
+      participant_login: string;
+      participant_name: string;
+      status: "notgraded" | "passed" | "failed";
+      mark: string;
+      comment: string | null;
+      grading_url: string;
+    }>(`/api/ilias/courses/${courseId}/grades/target/?${params.toString()}`);
+  }
+
+  async postGrade(
+    courseId: number,
+    data: {
+      exerciseUrl: string;
+      assignmentId: number;
+      participantLogin: string;
+      expectedExerciseTitle: string;
+      expectedAssignmentTitle: string;
+      expectedStatus: "notgraded" | "passed" | "failed";
+      expectedMark: string;
+      expectedComment: string | null;
+      status?: "notgraded" | "passed" | "failed";
+      mark?: string;
+      comment?: string;
+    }
+  ) {
+    return this.requestJson<{
+      success: boolean;
+      verified: boolean;
+      updated_fields: string[];
+      url: string;
+      grade: {
+        course_id: number;
+        exercise_url: string;
+        exercise_title: string;
+        assignment_id: number;
+        assignment_title: string;
+        participant_login: string;
+        participant_name: string;
+        status: "notgraded" | "passed" | "failed";
+        mark: string;
+        comment: string | null;
+        grading_url: string;
+      };
+    }>(`/api/ilias/courses/${courseId}/grades/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        exercise_url: data.exerciseUrl,
+        assignment_id: data.assignmentId,
+        participant_login: data.participantLogin,
+        expected_exercise_title: data.expectedExerciseTitle,
+        expected_assignment_title: data.expectedAssignmentTitle,
+        expected_status: data.expectedStatus,
+        expected_mark: data.expectedMark,
+        expected_comment: data.expectedComment,
+        status: data.status,
+        mark: data.mark,
+        comment: data.comment,
+      }),
+    });
+  }
+
   async downloadFile(url: string) {
     const encoded = encodeURIComponent(url);
     const response = await this.tokenManager.authenticatedFetch(
