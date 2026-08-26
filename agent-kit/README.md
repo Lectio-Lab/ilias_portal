@@ -36,7 +36,14 @@ posts once with verification; it does not calculate or recommend grades.
 ./stop.sh
 ```
 
-## More help
+## Packaging (maintainers)
 
-See [INSTALL.md](INSTALL.md) for per-agent setup and troubleshooting.
-For the shortest setup and grading walkthrough, see [QUICKSTART.md](QUICKSTART.md).
+Rebuild the macOS kit from the repo root:
+
+```bash
+./agent-kit/scripts/build-zip.sh 1.0.0
+```
+
+The archive ships source, lockfiles, skills, scripts, and a prebuilt MCP `dist/`.
+It deliberately excludes `backend/venv/`, `backend/.venv/`, and `node_modules/`;
+`./install.sh` creates those on the professor's machine.
