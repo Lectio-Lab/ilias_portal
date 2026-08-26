@@ -2,15 +2,16 @@
 
 ## Missing env vars
 
-**Symptom:** `ilias_check_setup` returns `missing_env_vars: ["ILIAS_USERNAME", ...]`
+**Symptom:** `ilias_check_setup` returns `missing_env_vars: ["PORTAL_EMAIL", ...]`
 
 **Action:**
-1. Edit `agent/credentials/.env.local`
-2. Fill every missing field:
-   - `ILIAS_USERNAME`: zx account, 7 chars (e.g. `zxofp67`)
-   - `ILIAS_PASSWORD`: university password
-   - `ILIAS_COURSE_ID`: 7-digit course ref ID
-3. Restart MCP (restart Cursor)
+1. Run `scripts/provision-interactive-auth.sh` (or copy `.env.local.example`)
+2. Ensure only the local portal identity is set (`PORTAL_EMAIL` / `PORTAL_PASSWORD`)
+3. Leave `ILIAS_USERNAME` / `ILIAS_PASSWORD` blank
+4. Restart MCP (restart Cursor)
+
+University passwords are never stored in `.env.local` or Postgres. Enter them only
+in the interactive browser MFA window opened by `ilias_refresh_courses`.
 
 ## Portal login / registration failed
 
@@ -35,7 +36,7 @@
 **Symptom:** `Unable to publish` after retries.
 
 **Action:**
-1. Check `docker compose logs backend`
+1. Check `docker compose logs backend` or `.run/backend.log`
 2. Wait 10 seconds and retry once
 3. Verify ILIAS is reachable
 
@@ -52,5 +53,5 @@
 **Symptom:** `ILIAS rejected the operation`
 
 **Action:**
-1. Verify you have tutor/moderator role on `ILIAS_COURSE_ID`
+1. Verify you have tutor/moderator role on the target course
 2. Confirm course ID is correct

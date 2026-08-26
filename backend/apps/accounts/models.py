@@ -56,11 +56,27 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class IliasCredential(models.Model):
+    """
+    Per-user ILIAS session state.
+
+    University passwords are never persisted. Authentication is interactive
+    browser MFA; only session cookies (phpsessid / shibsession) are stored.
+    ``ilias_username`` may optionally be kept as a display hint.
+    ``ilias_password`` remains as an empty legacy column and must stay blank.
+    """
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="ilias_credential"
     )
-    ilias_username = models.TextField()
-    ilias_password = models.TextField()
+    ilias_username = models.TextField(blank=True, default="")
+    ilias_password = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Deprecated. University passwords are never persisted; "
+            "auth uses interactive browser MFA and session cookies only."
+        ),
+    )
     phpsessid = models.TextField(blank=True, null=True)
     shibsession = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

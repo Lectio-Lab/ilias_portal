@@ -40,32 +40,54 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class IliasCredentialSerializer(serializers.ModelSerializer):
+    """
+    Optional username hint only. University passwords are rejected and never stored.
+    """
+
     ilias_password = serializers.CharField(
-        write_only=True, style={"input_type": "password"}
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={"input_type": "password"},
     )
+    ilias_username = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = IliasCredential
         fields = ("ilias_username", "ilias_password", "created_at", "updated_at")
         read_only_fields = ("created_at", "updated_at")
 
+    def validate(self, attrs):
+        if attrs.get("ilias_password"):
+            raise serializers.ValidationError(
+                {
+                    "ilias_password": (
+                        "University passwords are never stored. Leave this blank and "
+                        "complete login via interactive browser MFA when refreshing courses."
+                    )
+                }
+            )
+        attrs["ilias_password"] = ""
+        return attrs
+
     def create(self, validated_data):
         user = self.context["request"].user
         credential, _ = IliasCredential.objects.update_or_create(
             user=user,
             defaults={
-                "ilias_username": validated_data["ilias_username"],
-                "ilias_password": validated_data["ilias_password"],
+                "ilias_username": validated_data.get("ilias_username", ""),
+                "ilias_password": "",
             },
         )
+        if credential.ilias_password:
+            credential.ilias_password = ""
+            credential.save(update_fields=["ilias_password", "updated_at"])
         return credential
 
     def update(self, instance, validated_data):
         instance.ilias_username = validated_data.get(
             "ilias_username", instance.ilias_username
         )
-        instance.ilias_password = validated_data.get(
-            "ilias_password", instance.ilias_password
-        )
-        instance.save()
+        instance.ilias_password = ""
+        instance.save(update_fields=["ilias_username", "ilias_password", "updated_at"])
         return instance

@@ -83,9 +83,17 @@ export function validateEnv(): AppConfig {
   const config = getEnvConfig();
   if (!config) throw new Error("Portal configuration is incomplete.");
 
+  if (config.iliasPassword) {
+    throw new Error(
+      "ILIAS_PASSWORD must stay blank. University passwords are never stored. " +
+        "Clear ILIAS_PASSWORD in your .env.local and complete login via " +
+        "ilias_refresh_courses in the browser MFA window."
+    );
+  }
+
   if (config.iliasUsername && !config.iliasUsername.startsWith("zx")) {
     throw new Error(
-      "ILIAS_USERNAME must start with 'zx' and be your own account. " +
+      "ILIAS_USERNAME must start with 'zx' and be your own account, or stay blank. " +
         "Update ILIAS_USERNAME in your .env.local credentials file."
     );
   }

@@ -21,16 +21,16 @@ docker compose up -d
 
 | Variable | Purpose |
 |----------|---------|
-| `PORTAL_EMAIL` | Django portal API login |
+| `PORTAL_EMAIL` | Django portal API login (local generated identity) |
 | `PORTAL_PASSWORD` | Django portal API password |
-| `ILIAS_USERNAME` | Your zx account (7 characters) |
-| `ILIAS_PASSWORD` | University ILIAS password |
-| `ILIAS_COURSE_ID` | Default 7-digit course ref ID |
+| `ILIAS_USERNAME` | Leave blank |
+| `ILIAS_PASSWORD` | Leave blank — never stored |
+| `ILIAS_COURSE_ID` | Optional default 7-digit course ref ID |
 | `ILIAS_COURSE_IDS` | Optional comma-separated course IDs |
 | `API_BASE_URL` | Default `http://localhost:8000` |
 
-MCP never stores university credentials in interactive mode. Refreshing courses
-opens a visible university login/MFA browser and stores only the resulting session cookies.
+MCP never stores university credentials. Refreshing courses opens a visible
+university login/MFA browser and stores only the resulting session cookies.
 
 ## Architecture
 

@@ -57,13 +57,10 @@ export class AuthService {
     return this.http.patch<User>(`${this.baseUrl}/auth/profile/`, data);
   }
 
-  saveIliasCredentials(
-    iliasUsername: string,
-    iliasPassword: string
-  ): Observable<IliasCredential> {
+  saveIliasCredentials(iliasUsername: string): Observable<IliasCredential> {
     return this.http.post<IliasCredential>(
       `${this.baseUrl}/auth/ilias-credentials/`,
-      { ilias_username: iliasUsername, ilias_password: iliasPassword }
+      { ilias_username: iliasUsername, ilias_password: '' }
     );
   }
 

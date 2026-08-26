@@ -29,9 +29,9 @@ cp -R "$KIT_SRC/skill" "$STAGE/"
 cp -R "$KIT_SRC/mcp-config" "$STAGE/"
 chmod +x "$STAGE/skill/ilias-portal/scripts/health-check.sh"
 
-# Backend (exclude venv, caches)
+# Backend (exclude venvs, caches, secrets)
 mkdir -p "$STAGE/backend"
-rsync -a --exclude '.venv' --exclude '__pycache__' --exclude '*.pyc' \
+rsync -a --exclude '.venv' --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' \
   --exclude '.env' --exclude '.env.local' --exclude '*.log' \
   "$REPO_ROOT/backend/" "$STAGE/backend/"
 

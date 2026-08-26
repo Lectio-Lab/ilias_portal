@@ -20,7 +20,7 @@ export function mapApiError(
       message: `ILIAS authentication failed: ${detail}`,
       recoverable: true,
       action:
-        "Run ilias_refresh_courses with a browser available to complete MFA, or re-save ILIAS credentials via the portal.",
+        "Run ilias_refresh_courses and complete university login/MFA in the visible browser window.",
     };
   }
 
@@ -29,7 +29,7 @@ export function mapApiError(
       message: detail,
       recoverable: true,
       action:
-        "Set ILIAS_USERNAME and ILIAS_PASSWORD in your .env.local credentials file, then restart MCP.",
+        "Run ilias_refresh_courses and complete university login/MFA in the browser. University passwords are never stored in .env.local or the database.",
     };
   }
 

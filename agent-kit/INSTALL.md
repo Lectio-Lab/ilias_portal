@@ -49,7 +49,7 @@
 Run `scripts/provision-interactive-auth.sh` once. When `ilias_refresh_courses`
 runs, a browser window opens on your desktop (Chrome if installed). Enter your
 university credentials and complete MFA only there; they are not stored in the
-agent credential file.
+agent credential file or in Postgres (only session cookies are kept).
 
 Logs: `.run/backend.log`
 

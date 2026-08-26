@@ -22,7 +22,6 @@ export class CredentialsComponent implements OnInit {
   loadingCredentials = true;
   successMessage = '';
   errorMessage = '';
-  showPassword = false;
   existingCredentials: IliasCredential | null = null;
 
   constructor(
@@ -32,9 +31,8 @@ export class CredentialsComponent implements OnInit {
     this.form = this.fb.group({
       ilias_username: [
         '',
-        [Validators.required, Validators.pattern(/^zx[a-z0-9]+$/i)],
+        [Validators.pattern(/^$|^zx[a-z0-9]+$/i)],
       ],
-      ilias_password: ['', [Validators.required, Validators.minLength(6)]],
     });
   }
 
@@ -54,7 +52,6 @@ export class CredentialsComponent implements OnInit {
   }
 
   get usernameCtrl() { return this.form.get('ilias_username')!; }
-  get passwordCtrl() { return this.form.get('ilias_password')!; }
 
   onSubmit(): void {
     if (this.form.invalid) {
@@ -66,24 +63,26 @@ export class CredentialsComponent implements OnInit {
     this.successMessage = '';
     this.errorMessage = '';
 
-    const { ilias_username, ilias_password } = this.form.value;
+    const { ilias_username } = this.form.value;
 
-    this.authService.saveIliasCredentials(ilias_username, ilias_password).subscribe({
+    this.authService.saveIliasCredentials(ilias_username || '').subscribe({
       next: (creds) => {
         this.loading = false;
         this.existingCredentials = creds;
-        this.successMessage = 'ILIAS credentials saved successfully! You can now refresh your courses.';
-        this.form.patchValue({ ilias_password: '' });
-        this.form.get('ilias_password')?.markAsUntouched();
+        this.successMessage =
+          'Optional username hint saved. University passwords are never stored — use Refresh from ILIAS and complete MFA in the browser.';
       },
       error: (err) => {
         this.loading = false;
         if (err.status === 400) {
-          this.errorMessage = err.error?.detail || 'Invalid credentials format.';
+          this.errorMessage =
+            err.error?.ilias_password?.[0] ||
+            err.error?.detail ||
+            'Invalid request. University passwords cannot be saved.';
         } else if (err.status === 0) {
           this.errorMessage = 'Cannot connect to server.';
         } else {
-          this.errorMessage = 'Failed to save credentials. Please try again.';
+          this.errorMessage = 'Failed to save. Please try again.';
         }
       },
     });

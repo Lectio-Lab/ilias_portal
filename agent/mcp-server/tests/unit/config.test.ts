@@ -30,12 +30,12 @@ describe("config", () => {
     expect(config.baseUrl).toBe("http://localhost:8010");
   });
 
-  it("parses valid env config", () => {
+  it("parses valid env config without university password", () => {
     process.env = {
       PORTAL_EMAIL: "test@example.com",
       PORTAL_PASSWORD: "secret",
       ILIAS_USERNAME: "zxuser1",
-      ILIAS_PASSWORD: "ilias-secret",
+      ILIAS_PASSWORD: "",
       ILIAS_COURSE_ID: "5658784",
       ILIAS_COURSE_IDS: "5658784,5658785",
       API_BASE_URL: "http://localhost:8000/",
@@ -44,9 +44,22 @@ describe("config", () => {
     const config = validateEnv();
     expect(config.portalEmail).toBe("test@example.com");
     expect(config.iliasUsername).toBe("zxuser1");
+    expect(config.iliasPassword).toBe("");
     expect(config.courseId).toBe(5658784);
     expect(config.courseIds).toEqual([5658784, 5658785]);
     expect(config.baseUrl).toBe("http://localhost:8000");
+  });
+
+  it("rejects stored university password in env", () => {
+    process.env = {
+      PORTAL_EMAIL: "test@example.com",
+      PORTAL_PASSWORD: "secret",
+      ILIAS_USERNAME: "zxuser1",
+      ILIAS_PASSWORD: "ilias-secret",
+      ILIAS_COURSE_ID: "5658784",
+    };
+
+    expect(() => validateEnv()).toThrow(/ILIAS_PASSWORD must stay blank/);
   });
 
   it("rejects non-zx ILIAS username", () => {
@@ -54,7 +67,7 @@ describe("config", () => {
       PORTAL_EMAIL: "test@example.com",
       PORTAL_PASSWORD: "secret",
       ILIAS_USERNAME: "abofp67",
-      ILIAS_PASSWORD: "ilias-secret",
+      ILIAS_PASSWORD: "",
       ILIAS_COURSE_ID: "5658784",
     };
 
