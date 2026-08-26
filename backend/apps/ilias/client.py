@@ -933,6 +933,247 @@ class IliasClient:
             )
 
     # ------------------------------------------------------------------
+    # Resolve and post exercise grades
+    # ------------------------------------------------------------------
+
+    def get_grade_target(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+    ) -> dict:
+        """Resolve one exact exercise participant without exposing the full roster."""
+        target, _, _ = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        return target
+
+    def post_grade(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+        expected_exercise_title: str,
+        expected_assignment_title: str,
+        expected_status: str,
+        expected_mark: str,
+        expected_comment: Optional[str],
+        status: Optional[str] = None,
+        mark: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> dict:
+        """Post supplied grading fields once, then re-fetch and verify them."""
+        requested = {"status": status, "mark": mark, "comment": comment}
+        changed_fields = [key for key, value in requested.items() if value is not None]
+        if not changed_fields:
+            raise ValueError("Provide at least one grade field: status, mark, or comment.")
+        if status is not None and status not in ("notgraded", "passed", "failed"):
+            raise ValueError("status must be notgraded, passed, or failed.")
+        if mark is not None and len(mark) > 32:
+            raise ValueError("mark must be at most 32 characters.")
+
+        before, form, page_url = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        expected_values = {
+            "exercise_title": expected_exercise_title,
+            "assignment_title": expected_assignment_title,
+            "status": expected_status,
+            "mark": expected_mark,
+            "comment": expected_comment,
+        }
+        stale_fields = [
+            field for field, value in expected_values.items() if before[field] != value
+        ]
+        if stale_fields:
+            raise ValueError(
+                "Grade target changed since discovery for: "
+                + ", ".join(stale_fields)
+                + ". Run ilias_find_grade_target again before posting."
+            )
+        if comment is not None and before["comment"] is None:
+            raise ValueError(
+                "This exercise does not expose tutor comments for the selected assignment."
+            )
+
+        action_url = urljoin(page_url, form.get("action", ""))
+        parsed_action = urlparse(action_url)
+        if (
+            parsed_action.scheme != "https"
+            or parsed_action.hostname != urlparse(BASE_URL).hostname
+            or "saveEvaluationFromModal" not in action_url
+        ):
+            raise ValueError("ILIAS returned an invalid grade submission form.")
+
+        payload = self._form_payload(form)
+        if status is not None:
+            payload = self._set_form_field(payload, "grade", status)
+        if mark is not None:
+            payload = self._set_form_field(payload, "mark", mark)
+        if comment is not None:
+            payload = self._set_form_field(payload, "comment", comment)
+
+        result = self.session.post(action_url, data=payload, allow_redirects=True)
+        self._raise_for_ilias_response(result, "post grade")
+
+        after, _, _ = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        verification_errors = [
+            field
+            for field in changed_fields
+            if after[field] != requested[field]
+        ]
+        if verification_errors:
+            raise ValueError(
+                "ILIAS accepted the grade request but verification failed for: "
+                + ", ".join(verification_errors)
+            )
+
+        return {
+            "success": True,
+            "verified": True,
+            "updated_fields": changed_fields,
+            "url": after["grading_url"],
+            "grade": after,
+        }
+
+    def _load_grade_target(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+    ) -> tuple:
+        ref_id = self._exercise_ref_id(exercise_url)
+        canonical_url = f"{BASE_URL}/goto.php/exc/{ref_id}"
+        normalized_login = participant_login.strip()
+        if not normalized_login:
+            raise ValueError("participant_login must not be empty.")
+
+        contents = self.get_course_contents(course_id)
+        target_item = next(
+            (
+                item
+                for section in contents.get("sections", [])
+                for item in section.get("items", [])
+                if self._extract_object_ref_id(item.get("url", "")) == ref_id
+            ),
+            None,
+        )
+        if target_item is None or not self._is_exercise_item(target_item):
+            raise ValueError(
+                "The exercise URL is not an exercise in the requested course. "
+                "Run ilias_find_course_items and use its exact URL."
+            )
+
+        details = self.get_exercise_details(canonical_url)
+        assignment = next(
+            (
+                item
+                for item in details.get("assignments", [])
+                if item["id"] == assignment_id
+            ),
+            None,
+        )
+        if assignment is None:
+            raise ValueError(
+                f"Assignment ID {assignment_id} is not part of this exercise."
+            )
+
+        grading_url = (
+            f"{BASE_URL}/goto.php?target=exc_{ref_id}_{assignment_id}_grades"
+        )
+        response = self.session.get(grading_url, allow_redirects=True)
+        self._raise_for_ilias_response(response, "open assignment grading page")
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        matches = {}
+        login_pattern = re.compile(r"\[([^\[\]]+)\]\s*$")
+        for link in soup.find_all("a", href=True):
+            label = link.get_text(" ", strip=True)
+            login_match = login_pattern.search(label)
+            if login_match is None or login_match.group(1) != normalized_login:
+                continue
+            href = urljoin(response.url, link.get("href", ""))
+            params = parse_qs(urlparse(href).query)
+            participant_ids = params.get("part_id")
+            if not participant_ids:
+                continue
+            try:
+                participant_id = int(participant_ids[0])
+            except (TypeError, ValueError):
+                continue
+            matches[participant_id] = login_pattern.sub("", label).strip()
+
+        if not matches:
+            raise ValueError(
+                f'No exact participant login "{normalized_login}" is visible on '
+                "the selected assignment grading page."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f'Participant login "{normalized_login}" is ambiguous on the '
+                "selected assignment grading page."
+            )
+
+        participant_id, participant_name = next(iter(matches.items()))
+        forms = []
+        for candidate in soup.find_all("form"):
+            member = candidate.find("input", {"name": "mem_id"})
+            if (
+                member is not None
+                and member.get("value", "") == str(participant_id)
+                and candidate.find(attrs={"name": "grade"}) is not None
+                and candidate.find(attrs={"name": "mark"}) is not None
+            ):
+                forms.append(candidate)
+        if len(forms) != 1:
+            raise ValueError(
+                "Could not resolve one editable grade form for the exact participant. "
+                "Check the ILIAS grading permission and assignment page."
+            )
+
+        form = forms[0]
+
+        def field_value(name: str) -> Optional[str]:
+            field = form.find(attrs={"name": name})
+            if field is None:
+                return None
+            if field.name == "textarea":
+                return field.get_text()
+            if field.name == "select":
+                selected = field.find("option", selected=True) or field.find("option")
+                return selected.get("value", selected.get_text()) if selected else ""
+            return field.get("value", "")
+
+        target = {
+            "course_id": course_id,
+            "exercise_url": canonical_url,
+            "exercise_title": details["title"],
+            "assignment_id": assignment_id,
+            "assignment_title": assignment["title"],
+            "participant_login": normalized_login,
+            "participant_name": participant_name,
+            "status": field_value("grade") or "notgraded",
+            "mark": field_value("mark") or "",
+            "comment": field_value("comment"),
+            "grading_url": grading_url,
+        }
+        return target, form, response.url
+
+    # ------------------------------------------------------------------
     # Publish assignment
     # ------------------------------------------------------------------
 

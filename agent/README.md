@@ -53,6 +53,8 @@ Cursor Agent → MCP (stdio) → Django API :8000 → ILIAS
 | `ilias_get_course_contents` | Browse course |
 | `ilias_find_course_items` | Find live items and fetch current exercise content |
 | `ilias_edit_exercise` | Edit and verify an exact exercise URL |
+| `ilias_find_grade_target` | Inspect one exact participant's current assignment grade |
+| `ilias_post_grade` | Post and verify instructor-supplied grade fields |
 | `ilias_download_file` | Download from ILIAS |
 
 Exercise edits use a guarded two-step flow: find candidates first, resolve any
@@ -60,6 +62,11 @@ ambiguity, then edit the exact returned URL. The edit endpoint verifies that the
 exercise still belongs to the requested course and that its title has not
 changed, applies the requested fields once, re-fetches ILIAS, and returns the
 verified URL.
+
+Grade posting uses the same guarded pattern: resolve one exact participant login,
+show the current values, obtain explicit instructor confirmation, post supplied
+values once, and verify them by re-fetching ILIAS. The agent must not calculate,
+recommend, or choose a grade.
 
 ## Demo sample
 

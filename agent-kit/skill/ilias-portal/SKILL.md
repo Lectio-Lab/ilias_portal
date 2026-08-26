@@ -7,17 +7,19 @@ description: >-
   courses, lecture slides, exercises, Übungen, editing an exercise, changing an
   assignment deadline or instructions, editing the last/latest assignment or
   course content, course announcements, or academic platform tasks.
-compatibility: >-
-  Requires ILIAS Portal Agent Kit running (./start.sh), ilias-portal MCP server,
-  Node 18+, Docker Desktop, and a generated local Portal API identity.
 metadata:
   mcp-server: ilias-portal
-  version: 1.4.0
+  version: 1.5.0
 ---
 
 # ILIAS Portal Agent Skill
 
 Agent-only workflow. No frontend. Configuration lives in `agent/credentials/.env.local` inside the kit directory (`ILIAS_PORTAL_HOME`).
+
+## Compatibility
+
+Requires ILIAS Portal Agent Kit running (`./start.sh`), the `ilias-portal` MCP
+server, Node 22.12+, Docker Desktop, and a generated local Portal API identity.
 
 ## Prerequisites
 
@@ -56,6 +58,8 @@ Never ask the user to send a university password in chat.
 | Find an item from a title/query | `ilias_find_course_items` |
 | Edit an existing exercise | `ilias_edit_exercise` |
 | Edit the last/latest content | Resolve the exact item, then `ilias_edit_exercise` |
+| Inspect one exact grade target | `ilias_find_grade_target` |
+| Post instructor-supplied grade fields | `ilias_post_grade` |
 
 ## Course selection
 
@@ -112,6 +116,25 @@ created/edited":
 5. Follow the existing exercise-edit workflow, including current `expected_*`
    values, one write attempt, post-update verification, and the returned URL.
 
+## Post an instructor-supplied grade
+
+Grades are high-impact academic records. The agent may enter exact values chosen
+and supplied by the instructor, but must never calculate, recommend, infer, or
+choose a status, mark, or comment.
+
+1. Resolve the exact course and exercise with `ilias_find_course_items`.
+2. Resolve the exact assignment ID and participant login from the instructor's
+   input. Never search by a partial login or expose the full roster.
+3. Call `ilias_find_grade_target` and show the exact participant, exercise,
+   assignment, current status, mark, comment, and URL.
+4. Show the proposed before/after values and obtain explicit confirmation from
+   the instructor immediately before the write.
+5. Call `ilias_post_grade` once with every current `expected_*` value and only
+   the instructor-supplied replacement fields. Do not retry automatically.
+6. Report success only when the response has `verified: true`; include the
+   returned grading URL and updated fields. Otherwise report that the grade was
+   not verified and leave the record untouched when the stale-value guard fires.
+
 ## MFA recovery
 
 If ILIAS auth fails:
@@ -129,6 +152,8 @@ See [references/mfa-setup.md](references/mfa-setup.md).
 - Retry auth failures blindly in a loop
 - Guess an item URL, silently resolve an ambiguous match, or report an edit
   before the post-update verification succeeds
+- Calculate, recommend, infer, or choose a student's grade; list a roster when
+  the instructor supplied one exact participant login; or batch-grade by default
 
 ## Additional resources
 

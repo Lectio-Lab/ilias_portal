@@ -14,6 +14,8 @@ from .serializers import (
     CourseCacheSerializer,
     CourseContentsSerializer,
     EditExerciseSerializer,
+    GradeTargetSerializer,
+    PostGradeSerializer,
     PublishAnnouncementSerializer,
     PublishAssignmentSerializer,
 )
@@ -214,6 +216,64 @@ class EditExerciseView(APIView):
         except Exception as exc:
             return Response(
                 {"detail": f"Failed to edit exercise: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class GradeTargetView(APIView):
+    """GET /api/ilias/courses/<course_id>/grades/target/ — resolve one exact participant."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id: int):
+        serializer = GradeTargetSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.get_grade_target(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to resolve grade target: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class PostGradeView(APIView):
+    """POST /api/ilias/courses/<course_id>/grades/ — post and verify one supplied grade."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, course_id: int):
+        serializer = PostGradeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.post_grade(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to post grade: {exc}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response(result, status=status.HTTP_200_OK)

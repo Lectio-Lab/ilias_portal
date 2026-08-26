@@ -120,3 +120,31 @@ class EditExerciseSerializer(serializers.Serializer):
         if value is None:
             return value
         return self.validate_deadline(value)
+
+
+class GradeTargetSerializer(serializers.Serializer):
+    exercise_url = serializers.URLField()
+    assignment_id = serializers.IntegerField(min_value=1)
+    participant_login = serializers.CharField(max_length=255)
+
+
+class PostGradeSerializer(GradeTargetSerializer):
+    expected_exercise_title = serializers.CharField(max_length=500)
+    expected_assignment_title = serializers.CharField(max_length=500)
+    expected_status = serializers.ChoiceField(
+        choices=["notgraded", "passed", "failed"]
+    )
+    expected_mark = serializers.CharField(max_length=32, allow_blank=True)
+    expected_comment = serializers.CharField(allow_blank=True, allow_null=True)
+    status = serializers.ChoiceField(
+        choices=["notgraded", "passed", "failed"], required=False
+    )
+    mark = serializers.CharField(max_length=32, allow_blank=True, required=False)
+    comment = serializers.CharField(allow_blank=True, required=False)
+
+    def validate(self, attrs):
+        if not any(field in attrs for field in ("status", "mark", "comment")):
+            raise serializers.ValidationError(
+                "Provide at least one grade field to update: status, mark, or comment."
+            )
+        return attrs

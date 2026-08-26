@@ -18,7 +18,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 # Kit scaffolding (install, compose, scripts, skill, mcp-config)
-cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/install.sh" \
+cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/QUICKSTART.md" "$KIT_SRC/install.sh" \
   "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/docker-compose.yml" \
   "$KIT_SRC/.env.example" "$STAGE/"
 mkdir -p "$STAGE/scripts"
@@ -32,12 +32,13 @@ chmod +x "$STAGE/skill/ilias-portal/scripts/health-check.sh"
 # Backend (exclude venv, caches)
 mkdir -p "$STAGE/backend"
 rsync -a --exclude '.venv' --exclude '__pycache__' --exclude '*.pyc' \
-  --exclude '.env' --exclude '*.log' \
+  --exclude '.env' --exclude '.env.local' --exclude '*.log' \
   "$REPO_ROOT/backend/" "$STAGE/backend/"
 
 # Agent (exclude node_modules; include dist)
 mkdir -p "$STAGE/agent"
 rsync -a --exclude 'node_modules' --exclude '.env' \
+  --exclude 'credentials/.env.local' --exclude 'credentials/*.local' \
   "$REPO_ROOT/agent/" "$STAGE/agent/"
 chmod +x "$STAGE/agent/scripts/start-mcp.sh"
 

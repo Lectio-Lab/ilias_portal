@@ -6,6 +6,8 @@ from .views import (
     DownloadFileView,
     EditExerciseView,
     FindCourseItemsView,
+    GradeTargetView,
+    PostGradeView,
     PublishAnnouncementView,
     PublishAssignmentView,
     PublishSlidesView,
@@ -24,6 +26,10 @@ urlpatterns = [
     path(
         "courses/<int:course_id>/items/exercise/", EditExerciseView.as_view()
     ),
+    path(
+        "courses/<int:course_id>/grades/target/", GradeTargetView.as_view()
+    ),
+    path("courses/<int:course_id>/grades/", PostGradeView.as_view()),
     path(
         "courses/<int:course_id>/publish/assignment/", PublishAssignmentView.as_view()
     ),
