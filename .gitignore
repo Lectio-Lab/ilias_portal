@@ -40,6 +40,9 @@ agent/tests/eval/results/
 # Docker
 docker-data/
 
+# Local runtime (backend pid/logs from host start scripts)
+.run/
+
 # Agent kit
 dist/
 agent-kit/.run/
