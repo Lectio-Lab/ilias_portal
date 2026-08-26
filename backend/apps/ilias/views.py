@@ -23,7 +23,10 @@ from .serializers import (
 
 def _get_ilias_client(user) -> IliasClient:
     """
-    Retrieve the user's saved ILIAS credentials and return a logged-in IliasClient.
+    Return a logged-in IliasClient using cached session cookies only.
+
+    University passwords are never read from or written to the database.
+    Missing/expired cookies trigger interactive browser MFA via IliasClient.login().
     Raises ValueError / IliasLoginError on failure.
     """
     try:
@@ -35,19 +38,32 @@ def _get_ilias_client(user) -> IliasClient:
             ilias_password="",
         )
 
+    # Hard-clear any legacy plaintext password left from older builds.
+    if creds.ilias_password:
+        creds.ilias_password = ""
+        creds.save(update_fields=["ilias_password", "updated_at"])
+
     client = IliasClient(
-        username=creds.ilias_username,
-        password=creds.ilias_password,
+        username="",
+        password="",
         phpsessid=creds.phpsessid,
         shibsession=creds.shibsession,
     )
     client.login()
 
-    # Cache the updated cookies back to the database if they changed
-    if client.phpsessid != creds.phpsessid or client.shibsession != creds.shibsession:
+    # Persist session cookies only — never a university password.
+    update_fields: list[str] = []
+    if client.phpsessid != creds.phpsessid:
         creds.phpsessid = client.phpsessid
+        update_fields.append("phpsessid")
+    if client.shibsession != creds.shibsession:
         creds.shibsession = client.shibsession
-        creds.save(update_fields=["phpsessid", "shibsession"])
+        update_fields.append("shibsession")
+    if creds.ilias_password:
+        creds.ilias_password = ""
+        update_fields.append("ilias_password")
+    if update_fields:
+        creds.save(update_fields=[*update_fields, "updated_at"])
 
     return client
 
@@ -506,8 +522,8 @@ class SessionStatusView(APIView):
             )
 
         client = IliasClient(
-            username=creds.ilias_username,
-            password=creds.ilias_password,
+            username="",
+            password="",
             phpsessid=creds.phpsessid,
             shibsession=creds.shibsession,
         )

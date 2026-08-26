@@ -58,4 +58,7 @@ class UserAdmin(BaseUserAdmin):
 class IliasCredentialAdmin(admin.ModelAdmin):
     list_display = ("user", "ilias_username", "created_at", "updated_at")
     search_fields = ("user__email", "ilias_username")
+    readonly_fields = ("ilias_password", "phpsessid", "shibsession", "created_at", "updated_at")
+    exclude = ()
+    # ilias_password is legacy and must remain blank; do not expose an editable password widget.
     readonly_fields = ("created_at", "updated_at")

@@ -5,9 +5,10 @@
 **Symptom:** `ilias_check_setup` returns `missing_env_vars`
 
 **Action:**
-1. Edit `agent/credentials/.env.local`
-2. Fill every missing field
-3. Restart MCP in your agent
+1. Run `scripts/provision-interactive-auth.sh` (or copy `.env.local.example`)
+2. Ensure only the local portal identity is set (`PORTAL_EMAIL` / `PORTAL_PASSWORD`)
+3. Leave `ILIAS_USERNAME` / `ILIAS_PASSWORD` blank — university passwords are never stored
+4. Restart MCP in your agent
 
 ## Portal login / registration failed
 

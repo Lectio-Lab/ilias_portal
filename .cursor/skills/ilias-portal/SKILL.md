@@ -19,14 +19,16 @@ No frontend. No website. All configuration lives in `agent/credentials/.env.loca
 
 | Variable | Example | Hint |
 |----------|---------|------|
-| `PORTAL_EMAIL` | you@example.com | Portal API login |
-| `PORTAL_PASSWORD` | ... | Portal API password |
-| `ILIAS_USERNAME` | zxofp67 | Starts with `zx`, 7 characters |
-| `ILIAS_PASSWORD` | ... | University ILIAS password |
-| `ILIAS_COURSE_ID` | 5658784 | 7-digit course ref ID |
+| `PORTAL_EMAIL` | agent@localhost.invalid | Local portal API login (from provision script) |
+| `PORTAL_PASSWORD` | ... | Local portal API password |
+| `ILIAS_USERNAME` | *(leave blank)* | Never required; enter only in browser MFA |
+| `ILIAS_PASSWORD` | *(leave blank)* | Never stored; enter only in browser MFA |
+| `ILIAS_COURSE_ID` | 5658784 | Optional default course ref ID |
 | `ILIAS_COURSE_IDS` | (optional) | Comma-separated extra courses |
 
-If any are missing, tell the user to fill `agent/credentials/.env.local` and restart MCP. Never send them to a website.
+If portal env vars are missing, tell the user to run `provision-interactive-auth.sh`
+or fill `agent/credentials/.env.local` and restart MCP. Never ask for a university
+password in chat. Never put `ILIAS_PASSWORD` in env files.
 
 ## Demo quickstart
 

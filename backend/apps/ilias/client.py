@@ -1,9 +1,11 @@
 """
 IliasClient — per-user ILIAS session client.
 
-Performs a headless Shibboleth SSO login via requests (no Playwright dependency
-at runtime). All mutating operations (publish assignment, slides, announcement)
-are ported from the original OvidiusClient in scaping.py.
+Authentication prefers cached session cookies. When cookies are missing or
+expired, login falls back to interactive Playwright MFA in a visible browser.
+University passwords are never persisted by the portal; headless form-fill only
+runs when the caller explicitly passes ephemeral username/password for that
+process (agent kit always passes empty strings).
 """
 
 import os

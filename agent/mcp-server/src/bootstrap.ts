@@ -20,12 +20,8 @@ export async function bootstrapPortal(
     await tokenManager.login();
   }
 
-  if (config.iliasUsername && config.iliasPassword) {
-    await client.saveIliasCredentials(
-      config.iliasUsername,
-      config.iliasPassword
-    );
-  }
+  // Never POST university credentials. ILIAS auth is interactive browser MFA;
+  // only session cookies are persisted by the backend after refresh.
 
   return client;
 }
