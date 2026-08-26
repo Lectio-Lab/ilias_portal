@@ -13,6 +13,9 @@ from .models import CourseCache
 from .serializers import (
     CourseCacheSerializer,
     CourseContentsSerializer,
+    EditExerciseSerializer,
+    GradeTargetSerializer,
+    PostGradeSerializer,
     PublishAnnouncementSerializer,
     PublishAssignmentSerializer,
 )
@@ -26,8 +29,10 @@ def _get_ilias_client(user) -> IliasClient:
     try:
         creds = user.ilias_credential
     except IliasCredential.DoesNotExist:
-        raise ValueError(
-            "No ILIAS credentials saved. Please add them via /api/auth/ilias-credentials/"
+        creds = IliasCredential.objects.create(
+            user=user,
+            ilias_username="",
+            ilias_password="",
         )
 
     client = IliasClient(
@@ -133,6 +138,145 @@ class CourseContentsView(APIView):
 
         serializer = CourseContentsSerializer(contents)
         return Response(serializer.data)
+
+
+class FindCourseItemsView(APIView):
+    """GET /api/ilias/courses/<course_id>/items/search/?q=..."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id: int):
+        query = request.query_params.get("q", "").strip()
+        item_type = request.query_params.get("type", "").strip() or None
+        if not query:
+            return Response(
+                {"detail": "q is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(query) > 500:
+            return Response(
+                {"detail": "q must be at most 500 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            limit = int(request.query_params.get("limit", "10"))
+        except ValueError:
+            return Response(
+                {"detail": "limit must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not 1 <= limit <= 20:
+            return Response(
+                {"detail": "limit must be between 1 and 20."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.find_course_items(
+                course_id=course_id,
+                query=query,
+                item_type=item_type,
+                limit=limit,
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to find course items: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result)
+
+
+class EditExerciseView(APIView):
+    """PATCH /api/ilias/courses/<course_id>/items/exercise/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, course_id: int):
+        serializer = EditExerciseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.edit_exercise(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to edit exercise: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class GradeTargetView(APIView):
+    """GET /api/ilias/courses/<course_id>/grades/target/ — resolve one exact participant."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id: int):
+        serializer = GradeTargetSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.get_grade_target(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to resolve grade target: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class PostGradeView(APIView):
+    """POST /api/ilias/courses/<course_id>/grades/ — post and verify one supplied grade."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, course_id: int):
+        serializer = PostGradeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = _get_ilias_client(request.user)
+            result = client.post_grade(
+                course_id=course_id, **serializer.validated_data
+            )
+        except IliasLoginError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": f"Failed to post grade: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class PublishAssignmentView(APIView):
@@ -342,3 +486,56 @@ class DownloadFileView(APIView):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         response["Content-Length"] = len(content)
         return response
+
+
+class SessionStatusView(APIView):
+    """GET /api/ilias/session/status/ — lightweight ILIAS session health check."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            creds = request.user.ilias_credential
+        except IliasCredential.DoesNotExist:
+            return Response(
+                {
+                    "valid": False,
+                    "message": "No active ILIAS session. Refresh courses to open interactive university login.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        client = IliasClient(
+            username=creds.ilias_username,
+            password=creds.ilias_password,
+            phpsessid=creds.phpsessid,
+            shibsession=creds.shibsession,
+        )
+
+        try:
+            valid = client.is_session_valid()
+        except Exception as exc:
+            return Response(
+                {
+                    "valid": False,
+                    "message": f"Session check failed: {exc}",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if valid:
+            return Response(
+                {
+                    "valid": True,
+                    "message": "ILIAS session is active.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "valid": False,
+                "message": "ILIAS session expired. Run course refresh to re-authenticate (MFA may be required).",
+            },
+            status=status.HTTP_200_OK,
+        )

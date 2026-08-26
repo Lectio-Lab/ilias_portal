@@ -6,8 +6,10 @@ at runtime). All mutating operations (publish assignment, slides, announcement)
 are ported from the original OvidiusClient in scaping.py.
 """
 
+import os
 import re
 import time
+import unicodedata
 from typing import Optional
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -31,6 +33,7 @@ _BROWSER_HEADERS = {
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
+_UNSET = object()
 
 
 class IliasLoginError(Exception):
@@ -80,6 +83,10 @@ class IliasClient:
         shibsession = None
 
         try:
+            if not self.username or not self.password:
+                raise IliasLoginError(
+                    "No university credentials are stored; interactive login required."
+                )
             session = requests.Session()
             session.headers.update(_BROWSER_HEADERS)
 
@@ -150,21 +157,35 @@ class IliasClient:
         if not phpsessid or not shibsession:
             from playwright.sync_api import sync_playwright
 
-            print("\n[Playwright] Launching interactive browser for manual authentication & MFA...")
+            print(
+                "\n[Playwright] A browser window will open for university login and MFA..."
+            )
             try:
                 with sync_playwright() as p:
-                    # Launch in visible mode so user can see and complete the form / MFA
-                    browser = p.chromium.launch(headless=False)
+                    launch_kwargs: dict = {"headless": False}
+                    channel = os.environ.get("PLAYWRIGHT_BROWSER_CHANNEL", "").strip()
+                    executable = os.environ.get(
+                        "PLAYWRIGHT_EXECUTABLE_PATH", ""
+                    ).strip()
+                    if channel:
+                        launch_kwargs["channel"] = channel
+                    elif executable:
+                        launch_kwargs["executable_path"] = executable
+
+                    browser = p.chromium.launch(**launch_kwargs)
                     context = browser.new_context()
                     page = context.new_page()
 
                     print("[Playwright] Navigating to login page...")
                     page.goto(f"{BASE_URL}/shib_login.php", wait_until="networkidle")
 
-                    print("[Playwright] Please fill in details and complete MFA in the opened browser window.")
+                    print(
+                        "[Playwright] Complete login and MFA in the browser window."
+                    )
                     print("[Playwright] Waiting for login completion (checking session cookies)...")
 
-                    # Try to pre-fill credentials to make it faster
+                    # Pre-fill only when the user explicitly configured credentials.
+                    # Interactive-only mode leaves both fields untouched.
                     try:
                         page.wait_for_selector("input[type='password']", timeout=5000)
                         user_input = page.locator("input[type='text'], input[name*='user' i], input[name*='login' i]")
@@ -381,6 +402,777 @@ class IliasClient:
 
         return result
 
+    def find_course_items(
+        self,
+        course_id: int,
+        query: str,
+        item_type: Optional[str] = None,
+        limit: int = 10,
+    ) -> dict:
+        """Find live course items by title, type, section, and visible properties."""
+        query_normalized = self._normalize_search_text(query)
+        if not query_normalized:
+            raise ValueError("Search query must not be empty.")
+
+        type_normalized = self._normalize_search_text(item_type or "")
+        contents = self.get_course_contents(course_id)
+        matches = []
+
+        for section in contents.get("sections", []):
+            section_name = section.get("section", "")
+            for item in section.get("items", []):
+                title = item.get("title", "")
+                item_type_value = item.get("type") or ""
+                if type_normalized and type_normalized not in self._normalize_search_text(
+                    item_type_value
+                ):
+                    continue
+
+                properties = " ".join((item.get("properties") or {}).values())
+                title_normalized = self._normalize_search_text(title)
+                searchable = self._normalize_search_text(
+                    " ".join(
+                        [title, item_type_value, section_name, properties]
+                    )
+                )
+                score, reason = self._search_score(
+                    query_normalized, title_normalized, searchable
+                )
+                if score <= 0:
+                    continue
+
+                match = {
+                    **item,
+                    "section": section_name,
+                    "ref_id": self._extract_object_ref_id(item.get("url", "")),
+                    "match_score": score,
+                    "match_reason": reason,
+                }
+                matches.append(match)
+
+        matches.sort(
+            key=lambda match: (-match["match_score"], match["title"].casefold())
+        )
+        bounded_limit = max(1, min(limit, 20))
+        returned_matches = matches[:bounded_limit]
+        for match in returned_matches:
+            if self._is_exercise_item(match):
+                try:
+                    match["content"] = self.get_exercise_details(match["url"])
+                except (ValueError, requests.RequestException) as exc:
+                    match["content_error"] = str(exc)
+        return {
+            "course_id": course_id,
+            "course_title": contents.get("course_title"),
+            "query": query,
+            "count": len(returned_matches),
+            "total_matches": len(matches),
+            "matches": returned_matches,
+        }
+
+    def get_exercise_details(self, exercise_url: str) -> dict:
+        """Fetch current exercise settings and assignment units without changing them."""
+        ref_id = self._exercise_ref_id(exercise_url)
+        canonical_url = f"{BASE_URL}/goto.php/exc/{ref_id}"
+        settings_url = (
+            f"{BASE_URL}/ilias.php?baseClass=ilexercisehandlergui"
+            f"&cmdNode=cp:o6&cmdClass=ilObjExerciseGUI&cmd=edit&ref_id={ref_id}"
+        )
+        settings_response = self.session.get(settings_url, allow_redirects=True)
+        self._raise_for_ilias_response(settings_response, "fetch exercise settings")
+        settings_soup = BeautifulSoup(settings_response.text, "html.parser")
+        settings_form = self._find_form_with_field(settings_soup, "title", "desc")
+
+        title_tag = settings_soup.find("h1")
+        title = title_tag.get_text(" ", strip=True) if title_tag else ""
+        description = None
+        editable = settings_form is not None
+        if settings_form is not None:
+            title_input = settings_form.find("input", {"name": "title"})
+            description_input = settings_form.find("textarea", {"name": "desc"})
+            if title_input is not None:
+                title = title_input.get("value", "")
+            if description_input is not None:
+                description = description_input.get_text()
+
+        assignments_url = (
+            f"{BASE_URL}/ilias.php?baseClass=ilexercisehandlergui"
+            f"&cmdNode=cp:o6:c1&cmdClass=ilExAssignmentEditorGUI"
+            f"&cmd=listAssignments&ref_id={ref_id}&from_overview=1"
+        )
+        assignments_response = self.session.get(assignments_url, allow_redirects=True)
+        self._raise_for_ilias_response(assignments_response, "fetch assignment list")
+        assignments_soup = BeautifulSoup(assignments_response.text, "html.parser")
+
+        assignments = []
+        seen_assignment_ids = set()
+        for link in assignments_soup.find_all("a", href=True):
+            href = urljoin(assignments_response.url, link.get("href", ""))
+            params = parse_qs(urlparse(href).query)
+            if params.get("cmd") != ["editAssignment"] or not params.get("ass_id"):
+                continue
+            try:
+                assignment_id = int(params["ass_id"][0])
+            except (TypeError, ValueError):
+                continue
+            if assignment_id in seen_assignment_ids:
+                continue
+            seen_assignment_ids.add(assignment_id)
+            assignments.append(self._get_assignment_details(href, assignment_id))
+
+        return {
+            "ref_id": ref_id,
+            "title": title,
+            "description": description,
+            "url": canonical_url,
+            "editable": editable,
+            "assignments": assignments,
+        }
+
+    def edit_exercise(
+        self,
+        course_id: int,
+        exercise_url: str,
+        expected_title: str,
+        expected_description=_UNSET,
+        expected_assignment_title=_UNSET,
+        expected_instruction=_UNSET,
+        expected_deadline=_UNSET,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        assignment_id: Optional[int] = None,
+        assignment_title: Optional[str] = None,
+        instruction: Optional[str] = None,
+        deadline: Optional[str] = None,
+    ) -> dict:
+        """Edit an exact exercise, then re-fetch and verify every requested change."""
+        ref_id = self._exercise_ref_id(exercise_url)
+        canonical_url = f"{BASE_URL}/goto.php/exc/{ref_id}"
+        requested_fields = {
+            "title": title,
+            "description": description,
+            "assignment_title": assignment_title,
+            "instruction": instruction,
+            "deadline": deadline,
+        }
+        changed_fields = [
+            field for field, value in requested_fields.items() if value is not None
+        ]
+        if not changed_fields:
+            raise ValueError("At least one exercise field must be provided for editing.")
+
+        course_contents = self.get_course_contents(course_id)
+        target_item = next(
+            (
+                item
+                for section in course_contents.get("sections", [])
+                for item in section.get("items", [])
+                if self._extract_object_ref_id(item.get("url", "")) == ref_id
+            ),
+            None,
+        )
+        if target_item is None or not self._is_exercise_item(target_item):
+            raise ValueError(
+                "The exercise URL is not an exercise in the requested course. "
+                "Run ilias_find_course_items again and use its exact URL."
+            )
+
+        before = self.get_exercise_details(canonical_url)
+        if before["title"].strip() != expected_title.strip():
+            raise ValueError(
+                f'Exercise title changed or does not match: expected "{expected_title}", '
+                f'found "{before["title"]}". Re-run ilias_find_course_items before editing.'
+            )
+        if description is not None:
+            if expected_description is _UNSET:
+                raise ValueError(
+                    "expected_description is required when changing the description."
+                )
+            if before["description"] != expected_description:
+                raise ValueError(
+                    "Exercise description changed since discovery. "
+                    "Re-run ilias_find_course_items before editing."
+                )
+        if not before["editable"]:
+            raise ValueError("ILIAS did not expose editable settings for this exercise.")
+
+        assignment_changes_requested = any(
+            value is not None
+            for value in (assignment_title, instruction, deadline)
+        )
+        selected_assignment = None
+        if assignment_changes_requested:
+            assignments = before["assignments"]
+            if assignment_id is not None:
+                selected_assignment = next(
+                    (
+                        assignment
+                        for assignment in assignments
+                        if assignment["id"] == assignment_id
+                    ),
+                    None,
+                )
+                if selected_assignment is None:
+                    raise ValueError(
+                        f"Assignment ID {assignment_id} is not part of this exercise."
+                    )
+            elif len(assignments) == 1:
+                selected_assignment = assignments[0]
+            elif not assignments:
+                raise ValueError("This exercise has no editable assignment unit.")
+            else:
+                choices = ", ".join(
+                    f'{assignment["id"]}: {assignment["title"]}'
+                    for assignment in assignments
+                )
+                raise ValueError(
+                    "This exercise contains multiple assignment units. "
+                    f"Choose assignment_id from: {choices}."
+                )
+
+            expected_assignment_fields = (
+                ("assignment_title", assignment_title, expected_assignment_title),
+                ("instruction", instruction, expected_instruction),
+                ("deadline", deadline, expected_deadline),
+            )
+            for field_name, replacement, expected in expected_assignment_fields:
+                if replacement is None:
+                    continue
+                if expected is _UNSET:
+                    raise ValueError(
+                        f"expected_{field_name} is required when changing {field_name}."
+                    )
+                if selected_assignment[field_name.replace("assignment_", "")] != expected:
+                    raise ValueError(
+                        f"Assignment {field_name} changed since discovery. "
+                        "Re-run ilias_find_course_items before editing."
+                    )
+
+        # Update the assignment first so an assignment validation error cannot follow
+        # a successful container rename in the common combined-edit case.
+        if selected_assignment is not None:
+            self._update_assignment(
+                selected_assignment["edit_url"],
+                assignment_title=assignment_title,
+                instruction=instruction,
+                deadline=deadline,
+            )
+        if title is not None or description is not None:
+            self._update_exercise_settings(
+                ref_id, title=title, description=description
+            )
+
+        updated = self.get_exercise_details(canonical_url)
+        verification_errors = []
+        if title is not None and updated["title"] != title:
+            verification_errors.append("title")
+        if description is not None and updated["description"] != description:
+            verification_errors.append("description")
+
+        updated_assignment = None
+        if selected_assignment is not None:
+            updated_assignment = next(
+                (
+                    assignment
+                    for assignment in updated["assignments"]
+                    if assignment["id"] == selected_assignment["id"]
+                ),
+                None,
+            )
+            if updated_assignment is None:
+                verification_errors.append("assignment")
+            else:
+                if (
+                    assignment_title is not None
+                    and updated_assignment["title"] != assignment_title
+                ):
+                    verification_errors.append("assignment_title")
+                if (
+                    instruction is not None
+                    and updated_assignment["instruction"] != instruction
+                ):
+                    verification_errors.append("instruction")
+                expected_deadline = deadline or None
+                if (
+                    deadline is not None
+                    and updated_assignment["deadline"] != expected_deadline
+                ):
+                    verification_errors.append("deadline")
+
+        if verification_errors:
+            raise ValueError(
+                "ILIAS accepted the request but verification failed for: "
+                + ", ".join(verification_errors)
+            )
+
+        return {
+            "success": True,
+            "verified": True,
+            "url": canonical_url,
+            "updated_fields": changed_fields,
+            "exercise": {
+                key: value
+                for key, value in updated.items()
+                if key != "assignments"
+            },
+            "assignment": updated_assignment,
+        }
+
+    def _update_exercise_settings(
+        self,
+        ref_id: int,
+        title: Optional[str],
+        description: Optional[str],
+    ) -> None:
+        settings_url = (
+            f"{BASE_URL}/ilias.php?baseClass=ilexercisehandlergui"
+            f"&cmdNode=cp:o6&cmdClass=ilObjExerciseGUI&cmd=edit&ref_id={ref_id}"
+        )
+        response = self.session.get(settings_url, allow_redirects=True)
+        self._raise_for_ilias_response(response, "open exercise settings")
+        soup = BeautifulSoup(response.text, "html.parser")
+        form = self._find_form_with_field(soup, "title", "desc")
+        if form is None:
+            raise ValueError(
+                "Could not find editable exercise settings. Check your ILIAS role."
+            )
+
+        payload = self._form_payload(form)
+        if title is not None:
+            payload = self._set_form_field(payload, "title", title)
+        if description is not None:
+            payload = self._set_form_field(payload, "desc", description)
+        payload = self._set_form_field(payload, "cmd[update]", "Save")
+        action_url = urljoin(response.url, form.get("action", ""))
+        result = self.session.post(action_url, data=payload, allow_redirects=True)
+        self._raise_for_ilias_response(result, "update exercise settings")
+
+    def _update_assignment(
+        self,
+        edit_url: str,
+        assignment_title: Optional[str],
+        instruction: Optional[str],
+        deadline: Optional[str],
+    ) -> None:
+        response = self.session.get(edit_url, allow_redirects=True)
+        self._raise_for_ilias_response(response, "open assignment editor")
+        soup = BeautifulSoup(response.text, "html.parser")
+        form = self._find_form_with_field(soup, "title", "instruction")
+        if form is None or form.find("input", {"name": "cmd[updateAssignment]"}) is None:
+            raise ValueError(
+                "Could not find the editable assignment form. Check your ILIAS role."
+            )
+
+        payload = self._form_payload(form)
+        if assignment_title is not None:
+            payload = self._set_form_field(payload, "title", assignment_title)
+        if instruction is not None:
+            payload = self._set_form_field(payload, "instruction", instruction)
+        if deadline is not None:
+            if deadline:
+                payload = self._set_form_field(payload, "deadline_mode", "0")
+                payload = self._set_form_field(payload, "deadline", deadline)
+                payload = self._set_form_field(payload, "deadline2", deadline)
+            else:
+                payload = self._set_form_field(payload, "deadline_mode", "-1")
+                payload = self._set_form_field(payload, "deadline", "")
+                payload = self._set_form_field(payload, "deadline2", "")
+        payload = self._set_form_field(
+            payload, "cmd[updateAssignment]", "Save"
+        )
+        action_url = urljoin(response.url, form.get("action", ""))
+        result = self.session.post(action_url, data=payload, allow_redirects=True)
+        self._raise_for_ilias_response(result, "update assignment")
+
+    def _get_assignment_details(self, edit_url: str, assignment_id: int) -> dict:
+        parsed = urlparse(edit_url)
+        if parsed.scheme != "https" or parsed.hostname != urlparse(BASE_URL).hostname:
+            raise ValueError("ILIAS returned an invalid assignment editor URL.")
+        response = self.session.get(edit_url, allow_redirects=True)
+        self._raise_for_ilias_response(response, "fetch assignment details")
+        soup = BeautifulSoup(response.text, "html.parser")
+        form = self._find_form_with_field(soup, "title", "instruction")
+        if form is None:
+            raise ValueError(f"Could not read assignment {assignment_id}.")
+
+        def value(name: str) -> str:
+            field = form.find(attrs={"name": name})
+            if field is None:
+                return ""
+            if field.name == "textarea":
+                return field.get_text()
+            if field.name == "select":
+                selected = field.find("option", selected=True) or field.find("option")
+                return selected.get("value", selected.get_text()) if selected else ""
+            return field.get("value", "")
+
+        deadline_mode = ""
+        for radio in form.find_all("input", {"name": "deadline_mode"}):
+            if radio.has_attr("checked"):
+                deadline_mode = radio.get("value", "")
+                break
+        deadline = value("deadline") if deadline_mode == "0" else None
+        return {
+            "id": assignment_id,
+            "title": value("title"),
+            "instruction": value("instruction"),
+            "deadline": deadline,
+            "deadline_mode": deadline_mode,
+            "type": value("type"),
+            "edit_url": edit_url,
+        }
+
+    @staticmethod
+    def _find_form_with_field(soup: BeautifulSoup, *field_names: str):
+        for form in soup.find_all("form"):
+            if all(form.find(attrs={"name": name}) is not None for name in field_names):
+                return form
+        return None
+
+    @staticmethod
+    def _form_payload(form) -> list:
+        """Return successful HTML form controls while preserving repeated names."""
+        payload = []
+        for field in form.find_all(["input", "textarea", "select"]):
+            name = field.get("name")
+            if not name or field.has_attr("disabled"):
+                continue
+            field_type = field.get("type", "").lower()
+            if field_type in ("submit", "button", "file", "reset", "image"):
+                continue
+            if field_type in ("checkbox", "radio") and not field.has_attr("checked"):
+                continue
+            if field.name == "textarea":
+                payload.append((name, field.get_text()))
+            elif field.name == "select":
+                selected = field.find_all("option", selected=True)
+                if not selected and not field.has_attr("multiple"):
+                    first = field.find("option")
+                    selected = [first] if first is not None else []
+                payload.extend(
+                    (name, option.get("value", option.get_text()))
+                    for option in selected
+                )
+            else:
+                payload.append((name, field.get("value", "")))
+        return payload
+
+    @staticmethod
+    def _set_form_field(payload: list, name: str, value: str) -> list:
+        return [(key, item) for key, item in payload if key != name] + [(name, value)]
+
+    @staticmethod
+    def _normalize_search_text(value: str) -> str:
+        normalized = unicodedata.normalize("NFKC", str(value)).casefold()
+        return " ".join(re.findall(r"\w+", normalized, flags=re.UNICODE))
+
+    @staticmethod
+    def _search_score(query: str, title: str, searchable: str) -> tuple:
+        if query == title:
+            return 1000, "exact title"
+        if title.startswith(query):
+            return 800, "title starts with query"
+        if query in title:
+            return 650, "title contains query"
+        if query in searchable:
+            return 450, "item metadata contains query"
+        query_tokens = set(query.split())
+        searchable_tokens = set(searchable.split())
+        overlap = query_tokens & searchable_tokens
+        if overlap:
+            return int(100 * len(overlap) / len(query_tokens)), "token overlap"
+        return 0, "no match"
+
+    @staticmethod
+    def _is_exercise_item(item: dict) -> bool:
+        return (
+            "exercise" in str(item.get("type", "")).casefold()
+            or "/goto.php/exc/" in item.get("url", "")
+        )
+
+    @staticmethod
+    def _exercise_ref_id(url: str) -> int:
+        parsed = urlparse(url)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != urlparse(BASE_URL).hostname
+            or parsed.params
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "exercise_url must be the exact HTTPS URL returned by "
+                "ilias_find_course_items."
+            )
+        match = re.fullmatch(r"/goto\.php/exc/(\d+)/?", parsed.path)
+        if not match:
+            raise ValueError(
+                "exercise_url must be an ILIAS exercise URL returned by "
+                "ilias_find_course_items."
+            )
+        return int(match.group(1))
+
+    @staticmethod
+    def _extract_object_ref_id(url: str) -> Optional[int]:
+        ref_id = IliasClient._extract_ref_id(url)
+        if ref_id is not None:
+            return ref_id
+        match = re.search(r"/goto\.php/[a-z]+/(\d+)", urlparse(url).path)
+        return int(match.group(1)) if match else None
+
+    @staticmethod
+    def _raise_for_ilias_response(response, operation: str) -> None:
+        if "login.php" in response.url or "shib_login.php" in response.url:
+            raise IliasLoginError(f"Session expired while attempting to {operation}.")
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        alert = soup.select_one(".alert-danger, .ilFailureMessage, .error")
+        if alert is not None:
+            raise ValueError(
+                f"Could not {operation}: {alert.get_text(' ', strip=True)}"
+            )
+
+    # ------------------------------------------------------------------
+    # Resolve and post exercise grades
+    # ------------------------------------------------------------------
+
+    def get_grade_target(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+    ) -> dict:
+        """Resolve one exact exercise participant without exposing the full roster."""
+        target, _, _ = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        return target
+
+    def post_grade(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+        expected_exercise_title: str,
+        expected_assignment_title: str,
+        expected_status: str,
+        expected_mark: str,
+        expected_comment: Optional[str],
+        status: Optional[str] = None,
+        mark: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> dict:
+        """Post supplied grading fields once, then re-fetch and verify them."""
+        requested = {"status": status, "mark": mark, "comment": comment}
+        changed_fields = [key for key, value in requested.items() if value is not None]
+        if not changed_fields:
+            raise ValueError("Provide at least one grade field: status, mark, or comment.")
+        if status is not None and status not in ("notgraded", "passed", "failed"):
+            raise ValueError("status must be notgraded, passed, or failed.")
+        if mark is not None and len(mark) > 32:
+            raise ValueError("mark must be at most 32 characters.")
+
+        before, form, page_url = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        expected_values = {
+            "exercise_title": expected_exercise_title,
+            "assignment_title": expected_assignment_title,
+            "status": expected_status,
+            "mark": expected_mark,
+            "comment": expected_comment,
+        }
+        stale_fields = [
+            field for field, value in expected_values.items() if before[field] != value
+        ]
+        if stale_fields:
+            raise ValueError(
+                "Grade target changed since discovery for: "
+                + ", ".join(stale_fields)
+                + ". Run ilias_find_grade_target again before posting."
+            )
+        if comment is not None and before["comment"] is None:
+            raise ValueError(
+                "This exercise does not expose tutor comments for the selected assignment."
+            )
+
+        action_url = urljoin(page_url, form.get("action", ""))
+        parsed_action = urlparse(action_url)
+        if (
+            parsed_action.scheme != "https"
+            or parsed_action.hostname != urlparse(BASE_URL).hostname
+            or "saveEvaluationFromModal" not in action_url
+        ):
+            raise ValueError("ILIAS returned an invalid grade submission form.")
+
+        payload = self._form_payload(form)
+        if status is not None:
+            payload = self._set_form_field(payload, "grade", status)
+        if mark is not None:
+            payload = self._set_form_field(payload, "mark", mark)
+        if comment is not None:
+            payload = self._set_form_field(payload, "comment", comment)
+
+        result = self.session.post(action_url, data=payload, allow_redirects=True)
+        self._raise_for_ilias_response(result, "post grade")
+
+        after, _, _ = self._load_grade_target(
+            course_id=course_id,
+            exercise_url=exercise_url,
+            assignment_id=assignment_id,
+            participant_login=participant_login,
+        )
+        verification_errors = [
+            field
+            for field in changed_fields
+            if after[field] != requested[field]
+        ]
+        if verification_errors:
+            raise ValueError(
+                "ILIAS accepted the grade request but verification failed for: "
+                + ", ".join(verification_errors)
+            )
+
+        return {
+            "success": True,
+            "verified": True,
+            "updated_fields": changed_fields,
+            "url": after["grading_url"],
+            "grade": after,
+        }
+
+    def _load_grade_target(
+        self,
+        course_id: int,
+        exercise_url: str,
+        assignment_id: int,
+        participant_login: str,
+    ) -> tuple:
+        ref_id = self._exercise_ref_id(exercise_url)
+        canonical_url = f"{BASE_URL}/goto.php/exc/{ref_id}"
+        normalized_login = participant_login.strip()
+        if not normalized_login:
+            raise ValueError("participant_login must not be empty.")
+
+        contents = self.get_course_contents(course_id)
+        target_item = next(
+            (
+                item
+                for section in contents.get("sections", [])
+                for item in section.get("items", [])
+                if self._extract_object_ref_id(item.get("url", "")) == ref_id
+            ),
+            None,
+        )
+        if target_item is None or not self._is_exercise_item(target_item):
+            raise ValueError(
+                "The exercise URL is not an exercise in the requested course. "
+                "Run ilias_find_course_items and use its exact URL."
+            )
+
+        details = self.get_exercise_details(canonical_url)
+        assignment = next(
+            (
+                item
+                for item in details.get("assignments", [])
+                if item["id"] == assignment_id
+            ),
+            None,
+        )
+        if assignment is None:
+            raise ValueError(
+                f"Assignment ID {assignment_id} is not part of this exercise."
+            )
+
+        grading_url = (
+            f"{BASE_URL}/goto.php?target=exc_{ref_id}_{assignment_id}_grades"
+        )
+        response = self.session.get(grading_url, allow_redirects=True)
+        self._raise_for_ilias_response(response, "open assignment grading page")
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        matches = {}
+        login_pattern = re.compile(r"\[([^\[\]]+)\]\s*$")
+        for link in soup.find_all("a", href=True):
+            label = link.get_text(" ", strip=True)
+            login_match = login_pattern.search(label)
+            if login_match is None or login_match.group(1) != normalized_login:
+                continue
+            href = urljoin(response.url, link.get("href", ""))
+            params = parse_qs(urlparse(href).query)
+            participant_ids = params.get("part_id")
+            if not participant_ids:
+                continue
+            try:
+                participant_id = int(participant_ids[0])
+            except (TypeError, ValueError):
+                continue
+            matches[participant_id] = login_pattern.sub("", label).strip()
+
+        if not matches:
+            raise ValueError(
+                f'No exact participant login "{normalized_login}" is visible on '
+                "the selected assignment grading page."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f'Participant login "{normalized_login}" is ambiguous on the '
+                "selected assignment grading page."
+            )
+
+        participant_id, participant_name = next(iter(matches.items()))
+        forms = []
+        for candidate in soup.find_all("form"):
+            member = candidate.find("input", {"name": "mem_id"})
+            if (
+                member is not None
+                and member.get("value", "") == str(participant_id)
+                and candidate.find(attrs={"name": "grade"}) is not None
+                and candidate.find(attrs={"name": "mark"}) is not None
+            ):
+                forms.append(candidate)
+        if len(forms) != 1:
+            raise ValueError(
+                "Could not resolve one editable grade form for the exact participant. "
+                "Check the ILIAS grading permission and assignment page."
+            )
+
+        form = forms[0]
+
+        def field_value(name: str) -> Optional[str]:
+            field = form.find(attrs={"name": name})
+            if field is None:
+                return None
+            if field.name == "textarea":
+                return field.get_text()
+            if field.name == "select":
+                selected = field.find("option", selected=True) or field.find("option")
+                return selected.get("value", selected.get_text()) if selected else ""
+            return field.get("value", "")
+
+        target = {
+            "course_id": course_id,
+            "exercise_url": canonical_url,
+            "exercise_title": details["title"],
+            "assignment_id": assignment_id,
+            "assignment_title": assignment["title"],
+            "participant_login": normalized_login,
+            "participant_name": participant_name,
+            "status": field_value("grade") or "notgraded",
+            "mark": field_value("mark") or "",
+            "comment": field_value("comment"),
+            "grading_url": grading_url,
+        }
+        return target, form, response.url
+
     # ------------------------------------------------------------------
     # Publish assignment
     # ------------------------------------------------------------------
@@ -548,27 +1340,33 @@ class IliasClient:
         files: list = None,
     ) -> str:
         """
-        Creates a Folder in the course and uploads files into it.
-        Returns the URL of the created folder.
+        Uploads files to an ILIAS course. Creates a folder when permitted; otherwise
+        uploads directly into the course container.
+        Returns the URL of the created folder or course.
         ``files`` should be a list of dicts:
             [{"filename": str, "content": bytes, "content_type": str}]
         """
         if files is None:
             files = []
 
-        folder_ref_id = self._create_folder(course_id, title, description)
+        try:
+            parent_ref_id = self._create_folder(course_id, title, description)
+            result_url = f"{BASE_URL}/goto.php/fold/{parent_ref_id}"
+        except ValueError:
+            parent_ref_id = course_id
+            result_url = f"{BASE_URL}/goto.php/crs/{course_id}"
 
         for f in files:
             self._upload_file_to_folder(
-                folder_ref_id=folder_ref_id,
+                folder_ref_id=parent_ref_id,
                 filename=f.get("filename", "file"),
                 file_content=f.get("content", b""),
                 content_type=f.get("content_type", "application/octet-stream"),
-                title=f.get("title", f.get("filename", "")),
-                description=f.get("description", ""),
+                title=f.get("title", title or f.get("filename", "")),
+                description=f.get("description", description),
             )
 
-        return f"{BASE_URL}/goto.php/fold/{folder_ref_id}"
+        return result_url
 
     def _create_folder(self, parent_ref_id: int, title: str, description: str) -> int:
         init_url = (

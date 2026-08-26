@@ -1,0 +1,10 @@
+# OpenAI Codex — MCP configuration example
+# Replace {{KIT_HOME}} with the absolute path to your unzipped kit.
+#
+# In Codex CLI / project settings, add an MCP server with:
+#   command: /bin/bash
+#   args: ["{{KIT_HOME}}/agent/scripts/start-mcp.sh"]
+#   env:
+#     ILIAS_PORTAL_HOME: "{{KIT_HOME}}"
+#
+# Install skill from skill/ilias-portal/ into ~/.agents/skills/ilias-portal/

@@ -1,0 +1,3 @@
+display_name: ILIAS Portal
+short_description: Publish slides and manage ILIAS courses via MCP tools.
+default_prompt: Check my ILIAS setup and list my courses.

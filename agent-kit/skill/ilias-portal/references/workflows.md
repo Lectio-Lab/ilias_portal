@@ -1,0 +1,115 @@
+# Agent-Only Workflows
+
+Paths are relative to the kit root (`ILIAS_PORTAL_HOME`).
+
+## Workflow 1: First-time setup
+
+1. `cp agent/credentials/.env.local.example agent/credentials/.env.local`
+2. Fill all required fields (portal + ILIAS + course ID)
+3. `./install.sh` then `./start.sh`
+4. Register MCP server for your agent (see `INSTALL.md`)
+5. Agent calls `ilias_check_setup`
+6. If session invalid → `ilias_refresh_courses` (complete MFA in browser if prompted)
+
+## Workflow 2: Demo publish markdown as PDF
+
+User prompt example:
+
+> Publish agent/samples/what-is-machine-learning.md to ILIAS as lecture slides.
+
+Agent steps:
+
+1. `ilias_check_setup`
+2. `ilias_refresh_courses` if `ready_for_publish` is false
+3. `ilias_publish_markdown_as_slides` with default sample path
+4. Return success message + ILIAS URL
+
+## Workflow 3: Browse courses
+
+1. `ilias_check_setup`
+2. `ilias_refresh_courses` if session invalid
+3. Report courses from refresh result or call `ilias_get_course_contents` for a specific course
+
+## Workflow 4: Publish existing PDF
+
+1. `ilias_check_setup`
+2. `ilias_publish_slides` with `course_id` from env and `file_paths` pointing to PDF
+
+## Workflow 5: Find and edit an existing exercise
+
+User prompt example:
+
+> Edit the instructions in exercise CNN Homework so students must also submit a confusion matrix.
+
+Agent steps:
+
+1. Resolve the course ID from the current conversation or course list.
+2. Call `ilias_find_course_items` with the identifying words and
+   `item_type: "Exercise"`.
+3. Resolve safely:
+   - Zero candidates: ask for a different title or course.
+   - One clear candidate: present its current title, content, and URL.
+   - Multiple plausible candidates: present titles, sections, and URLs, then ask
+     the user to choose. Do not edit yet.
+4. If the candidate has multiple assignment units, present their IDs and titles
+   and resolve the exact `assignment_id`.
+5. Confirm the exact before/after fields. Preserve fields the user did not ask to
+   change.
+6. Call `ilias_edit_exercise` once with:
+   - `course_id`
+   - exact `exercise_url` from the find result
+   - exact current exercise title as `expected_title`
+   - current value for each content field being replaced, using the matching
+     `expected_*` argument from the find result
+   - only requested replacement fields
+   - `assignment_id` when required
+7. Treat only `verified: true` as success. Return the updated title/content
+   summary and the tool's `url`.
+8. If the server reports a stale title, missing course membership, ambiguity, or
+   failed verification, stop. Re-run discovery only after explaining the issue;
+   never blindly retry the edit.
+
+## Workflow 6: Edit the last or latest course content
+
+User prompt example:
+
+> Update the last assignment: extend the deadline to Friday and append a Java deployment task.
+
+Resolution order:
+
+1. Exact URL in the user's request or currently open ILIAS page.
+2. Exact URL returned by the immediately preceding successful publish, find, or
+   edit operation in the same conversation.
+3. Most recent live item only when ILIAS exposes a reliable creation or start
+   timestamp.
+4. User selection from candidate titles and URLs when none of the above proves
+   which item is latest.
+
+After resolution:
+
+1. Fetch current content from ILIAS; do not reuse old instructions or deadline.
+2. Preserve text the user did not ask to change. For additions, append a clearly
+   titled section without duplicating an existing section.
+3. Use the current values as `expected_*` arguments and call
+   `ilias_edit_exercise` once.
+4. Re-fetch and verify every changed field. Report success only with
+   `verified: true`, and always include the updated exercise URL.
+
+## Workflow 7: Post a supplied grade for one participant
+
+User prompt example:
+
+> For assignment 7 in CNN Homework, set ILIAS login ada to passed with mark 1.3 and comment “Good work.”
+
+Agent steps:
+
+1. Treat the instructor's status, mark, and comment as fixed input. Do not
+   calculate, recommend, normalize, or infer any grade value.
+2. Resolve the exact course, exercise URL, assignment ID, and participant login.
+3. Call `ilias_find_grade_target`; never use a partial login or request a roster.
+4. Present the exact target and current/proposed values, then obtain explicit
+   confirmation immediately before posting.
+5. Call `ilias_post_grade` once with the discovery result's current values as
+   `expected_*` fields and only the confirmed replacements.
+6. Report success only when `verified` is true. A stale-value or ambiguous-target
+   response is a hard stop, not a reason to retry the write.

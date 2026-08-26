@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ilias-portal": {
+      "command": "node",
+      "args": ["{{KIT_HOME}}/agent/mcp-server/dist/cli.js"],
+      "env": {
+        "ILIAS_PORTAL_HOME": "{{KIT_HOME}}"
+      }
+    }
+  }
+}

@@ -11,8 +11,9 @@ Users can:
 4. **Browse course contents** — see all sections, files, exercises, etc.
 5. **Download files** directly from the portal
 6. **Publish assignments** (Übungen) to any course they moderate
-7. **Upload lecture slides** (creates a folder and uploads files)
-8. **Post announcements** (news items) to the course timeline
+7. **Find and safely edit existing exercises** (content, title, and deadline)
+8. **Upload lecture slides** (creates a folder and uploads files)
+9. **Post announcements** (news items) to the course timeline
 
 ## Architecture
 
@@ -103,6 +104,10 @@ npm start
 | GET | `/api/ilias/courses/` | List cached courses |
 | POST | `/api/ilias/courses/refresh/` | Login to ILIAS, fetch fresh course list |
 | GET | `/api/ilias/courses/<id>/contents/` | Get course sections + items |
+| GET | `/api/ilias/courses/<id>/items/search/?q=<query>` | Find live course items and exact URLs |
+| PATCH | `/api/ilias/courses/<id>/items/exercise/` | Edit and verify an exact exercise |
+| GET | `/api/ilias/courses/<id>/grades/target/` | Resolve one exact participant's current assignment grade |
+| POST | `/api/ilias/courses/<id>/grades/` | Post and verify instructor-supplied grade fields |
 | POST | `/api/ilias/courses/<id>/publish/assignment/` | Create exercise + assignment |
 | POST | `/api/ilias/courses/<id>/publish/slides/` | Create folder + upload files |
 | POST | `/api/ilias/courses/<id>/publish/announcement/` | Post news item |
@@ -125,3 +130,6 @@ DB_PORT=5432
 - ILIAS credentials are stored plaintext in PostgreSQL — for production, add field-level encryption (e.g., `django-encrypted-fields`)
 - CORS is wide-open for development — restrict `CORS_ALLOWED_ORIGINS` in production
 - Use HTTPS in production and set `DEBUG=False`
+- Grade posting requires exact target discovery, current-value guards, explicit
+  instructor confirmation, a single write, and post-write verification. Agents
+  must never calculate, recommend, infer, or choose a student's grade.

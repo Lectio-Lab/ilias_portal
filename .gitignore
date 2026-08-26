@@ -27,3 +27,25 @@ frontend/dist/
 
 # OS files
 .DS_Store
+
+# Agent integration
+agent/credentials/.env.local
+agent/credentials/*.local
+agent/mcp-server/node_modules/
+agent/mcp-server/dist/
+agent/mcp-server/.env
+agent/tests/eval/results/
+.cursor/mcp.local.json
+
+# Docker
+docker-data/
+
+# Agent kit
+dist/
+agent-kit/.run/
+agent-kit/docker-data/
+agent-kit/.mcp.json
+agent-kit/mcp-config/installed/
+
+# Playwright (MFA fallback)
+.playwright/

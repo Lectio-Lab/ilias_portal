@@ -1,0 +1,26 @@
+{"prompt": "Check if my ILIAS setup is ready", "expected_tools": ["ilias_check_setup"], "max_calls": 1}
+{"prompt": "Show me all my ILIAS courses", "expected_tools": ["ilias_list_courses"], "max_calls": 2}
+{"prompt": "Refresh my courses from ILIAS", "expected_tools": ["ilias_refresh_courses"], "max_calls": 1}
+{"prompt": "What contents are in course 12345?", "expected_tools": ["ilias_get_course_contents"], "max_calls": 1}
+{"prompt": "List courses and then show me what's in the first one", "expected_tools": ["ilias_list_courses", "ilias_get_course_contents"], "max_calls": 3}
+{"prompt": "Download the syllabus PDF from this ILIAS URL", "expected_tools": ["ilias_download_file"], "max_calls": 1}
+{"prompt": "Post an announcement that the exam is moved to room 3", "expected_tools": ["ilias_publish_announcement"], "max_calls": 2, "requires_confirmation": true}
+{"prompt": "Create an assignment titled Homework 3 about neural networks", "expected_tools": ["ilias_publish_assignment"], "max_calls": 2, "requires_confirmation": true}
+{"prompt": "Upload lecture slides for week 5", "expected_tools": ["ilias_publish_slides"], "max_calls": 2, "requires_confirmation": true}
+{"prompt": "Am I connected to ILIAS?", "expected_tools": ["ilias_check_setup"], "max_calls": 1}
+{"prompt": "Sync my ILIAS dashboard", "expected_tools": ["ilias_refresh_courses"], "max_calls": 1}
+{"prompt": "Browse course materials for Introduction to ML", "expected_tools": ["ilias_list_courses", "ilias_get_course_contents"], "max_calls": 3}
+{"prompt": "What courses do I teach?", "expected_tools": ["ilias_list_courses"], "max_calls": 2}
+{"prompt": "Publish slides from /tmp/lecture5.pdf to course 99999", "expected_tools": ["ilias_publish_slides"], "max_calls": 2, "requires_confirmation": true}
+{"prompt": "Create exercise Übung 2 with deadline 15.12.2026 23:59", "expected_tools": ["ilias_publish_assignment"], "max_calls": 2, "requires_confirmation": true}
+{"prompt": "What's the status of my ILIAS session?", "expected_tools": ["ilias_check_setup"], "max_calls": 1}
+{"prompt": "Get the latest course list from Ovidius ILIAS", "expected_tools": ["ilias_refresh_courses"], "max_calls": 1}
+{"prompt": "Show announcements I could post to my course", "expected_tools": ["ilias_list_courses"], "max_calls": 2}
+{"prompt": "I need to see files in my statistics course", "expected_tools": ["ilias_list_courses", "ilias_get_course_contents"], "max_calls": 3}
+{"prompt": "Find the exercise called CNN Homework and show me its current instructions", "expected_tools": ["ilias_find_course_items"], "max_calls": 2}
+{"prompt": "Change the instructions in exercise CNN Homework to require a confusion matrix", "expected_tools": ["ilias_find_course_items", "ilias_edit_exercise"], "max_calls": 3, "requires_confirmation": true}
+{"prompt": "Update the last assignment we edited: move its deadline to Friday and append a Java deployment section", "expected_tools": ["ilias_find_course_items", "ilias_edit_exercise"], "max_calls": 3, "requires_confirmation": true}
+{"prompt": "Help me set up ILIAS for the first time", "expected_tools": ["ilias_check_setup"], "max_calls": 2}
+{"prompt": "Publish the ML sample markdown to ILIAS as a PDF", "expected_tools": ["ilias_check_setup", "ilias_publish_markdown_as_slides"], "max_calls": 4}
+{"prompt": "For assignment 7 in CNN Homework, show me the current grade for exact ILIAS login ada before changing anything", "expected_tools": ["ilias_find_course_items", "ilias_find_grade_target"], "max_calls": 3}
+{"prompt": "Using the current values I just confirmed, set exact login ada to passed with mark 1.3 and comment Good work", "expected_tools": ["ilias_post_grade"], "max_calls": 1, "requires_confirmation": true}
