@@ -131,3 +131,9 @@ load_dotenv() {
   source "$file"
   set +a
 }
+
+read_kit_version() {
+  # Agent-kit release version tracks agent/mcp-server/package.json (MCP semver).
+  local repo_root="$1"
+  node -p "require('${repo_root}/agent/mcp-server/package.json').version"
+}

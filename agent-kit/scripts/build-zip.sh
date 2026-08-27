@@ -3,13 +3,18 @@
 # Ships source + lockfiles + prebuilt MCP dist — never local venvs or node_modules.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VERSION="${1:-1.0.0}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+VERSION="${1:-$(read_kit_version "$REPO_ROOT")}"
 STAGE="$REPO_ROOT/dist/stage/ilias-portal-agent-kit"
 DIST="$REPO_ROOT/dist"
 KIT_SRC="$REPO_ROOT/agent-kit"
+MAX_KIT_ZIP_BYTES=$((15 * 1024 * 1024)) # 15 MiB — fail if venv/node_modules leak back in
 
-echo "Building ILIAS Portal Agent Kit v$VERSION"
+echo "Building ILIAS Portal Agent Kit v$VERSION (from agent/mcp-server/package.json)"
 
 # Build MCP server
 echo "Building MCP server..."
@@ -117,6 +122,13 @@ zip_leak="$(
 if [[ -n "$zip_leak" ]]; then
   echo "ERROR: built zip still lists venv or node_modules entries:" >&2
   echo "$zip_leak" | head -20 >&2
+  exit 1
+fi
+
+size_bytes="$(wc -c <"$ZIP_KIT" | tr -d ' ')"
+if (( size_bytes > MAX_KIT_ZIP_BYTES )); then
+  echo "ERROR: kit zip is ${size_bytes} bytes (max ${MAX_KIT_ZIP_BYTES}). venv likely leaked back in." >&2
+  ls -lh "$ZIP_KIT" >&2
   exit 1
 fi
 
