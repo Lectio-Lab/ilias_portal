@@ -53,7 +53,9 @@ It deliberately excludes `backend/venv/`, `backend/.venv/`, and `node_modules/`;
 `./install.sh` creates those on the professor's machine. `build-zip.sh` fails if
 venv/node_modules leak in or the kit zip exceeds 15 MiB.
 
-Regression check:
+Regression check (uses a detached git worktree, plants sentinel files in
+`.venv`, `venv`, and `node_modules`, then verifies they are absent from the
+built archive):
 
 ```bash
 ./agent-kit/scripts/test-build-zip.sh
