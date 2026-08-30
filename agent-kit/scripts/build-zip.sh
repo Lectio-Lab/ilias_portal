@@ -24,16 +24,25 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
 # Kit scaffolding (install, compose, scripts, skill, mcp-config)
-cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/QUICKSTART.md" "$KIT_SRC/install.sh" \
-  "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/docker-compose.yml" \
+cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/QUICKSTART.md" "$KIT_SRC/SECURITY.md" "$KIT_SRC/install.sh" \
+  "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/uninstall.sh" "$KIT_SRC/docker-compose.yml" \
   "$KIT_SRC/.env.example" "$STAGE/"
 mkdir -p "$STAGE/scripts"
 cp "$KIT_SRC/scripts/"*.sh "$STAGE/scripts/"
-chmod +x "$STAGE"/install.sh "$STAGE"/start.sh "$STAGE"/stop.sh "$STAGE"/scripts/*.sh
+chmod +x "$STAGE"/install.sh "$STAGE"/start.sh "$STAGE"/stop.sh "$STAGE"/uninstall.sh "$STAGE"/scripts/*.sh
 
 cp -R "$KIT_SRC/skill" "$STAGE/"
-cp -R "$KIT_SRC/mcp-config" "$STAGE/"
+mkdir -p "$STAGE/mcp-config"
+rsync -a \
+  --exclude 'installed' \
+  --exclude 'installed/**' \
+  "$KIT_SRC/mcp-config/" "$STAGE/mcp-config/"
 chmod +x "$STAGE/skill/ilias-portal/scripts/health-check.sh"
+
+if [[ -d "$STAGE/mcp-config/installed" ]]; then
+  echo "ERROR: mcp-config/installed must not be staged (machine-local MCP configs)" >&2
+  exit 1
+fi
 
 # Backend source only (recipients create .venv during ./install.sh)
 mkdir -p "$STAGE/backend"
@@ -66,11 +75,12 @@ leak="$(
   find "$STAGE" \( \
     -path '*/venv' -o -path '*/venv/*' -o \
     -path '*/.venv' -o -path '*/.venv/*' -o \
-    -path '*/node_modules' -o -path '*/node_modules/*' \
+    -path '*/node_modules' -o -path '*/node_modules/*' -o \
+    -path '*/mcp-config/installed' -o -path '*/mcp-config/installed/*' \
   \) -print 2>/dev/null | head -5 || true
 )"
 if [[ -n "$leak" ]]; then
-  echo "ERROR: staged kit contains venv or node_modules (must not ship):" >&2
+  echo "ERROR: staged kit contains venv, node_modules, or generated MCP configs (must not ship):" >&2
   echo "$leak" >&2
   exit 1
 fi

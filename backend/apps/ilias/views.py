@@ -10,6 +10,7 @@ from apps.accounts.models import IliasCredential
 
 from .client import IliasClient, IliasLoginError
 from .models import CourseCache
+from .security import validate_ilias_download_url
 from .serializers import (
     CourseCacheSerializer,
     CourseContentsSerializer,
@@ -472,6 +473,11 @@ class DownloadFileView(APIView):
 
         # Decode if URL-encoded
         file_url = urllib.parse.unquote(raw_url)
+
+        try:
+            validate_ilias_download_url(file_url)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             client = _get_ilias_client(request.user)

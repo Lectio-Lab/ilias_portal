@@ -41,6 +41,7 @@ fi
 
 cd "$BACKEND_DIR"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
-nohup python manage.py runserver "0.0.0.0:$BACKEND_PORT" >"$LOG_FILE" 2>&1 &
+BACKEND_BIND_HOST="${BACKEND_BIND_HOST:-127.0.0.1}"
+nohup python manage.py runserver "$BACKEND_BIND_HOST:$BACKEND_PORT" >"$LOG_FILE" 2>&1 &
 echo $! >"$PID_FILE"
-echo "Backend started on :$BACKEND_PORT (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"
+echo "Backend started on $BACKEND_BIND_HOST:$BACKEND_PORT (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"

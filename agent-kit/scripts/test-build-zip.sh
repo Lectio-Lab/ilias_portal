@@ -32,11 +32,13 @@ echo "Planting sentinel files in excluded directories (version $VERSION)..."
 mkdir -p \
   "$WORKTREE_ROOT/backend/.venv" \
   "$WORKTREE_ROOT/backend/venv" \
-  "$WORKTREE_ROOT/agent/mcp-server/node_modules"
+  "$WORKTREE_ROOT/agent/mcp-server/node_modules" \
+  "$WORKTREE_ROOT/agent-kit/mcp-config/installed"
 touch \
   "$WORKTREE_ROOT/backend/.venv/$SENTINEL_NAME" \
   "$WORKTREE_ROOT/backend/venv/$SENTINEL_NAME" \
-  "$WORKTREE_ROOT/agent/mcp-server/node_modules/$SENTINEL_NAME"
+  "$WORKTREE_ROOT/agent/mcp-server/node_modules/$SENTINEL_NAME" \
+  "$WORKTREE_ROOT/agent-kit/mcp-config/installed/cursor.mcp.json"
 
 echo "Running build in worktree..."
 "$WORKTREE_ROOT/agent-kit/scripts/build-zip.sh"
@@ -58,6 +60,12 @@ zip_leak="$(
 if [[ -n "$zip_leak" ]]; then
   echo "FAIL: zip still lists venv or node_modules paths:" >&2
   echo "$zip_leak" | head -20 >&2
+  exit 1
+fi
+
+if unzip -Z1 "$ZIP_KIT" | grep -q 'mcp-config/installed/'; then
+  echo "FAIL: generated MCP configs must not ship in the kit archive." >&2
+  unzip -Z1 "$ZIP_KIT" | grep 'mcp-config/installed/' >&2
   exit 1
 fi
 

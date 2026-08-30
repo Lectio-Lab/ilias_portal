@@ -36,6 +36,16 @@ posts once with verification; it does not calculate or recommend grades.
 ./stop.sh
 ```
 
+## Uninstall
+
+```bash
+./uninstall.sh          # stop services, print manual MCP/skills cleanup
+./uninstall.sh --purge  # also delete docker-data, .venv, node_modules, generated MCP configs
+```
+
+See [SECURITY.md](SECURITY.md) for local-only network assumptions. This kit targets **macOS**;
+Windows is not supported in this release.
+
 ## Packaging (maintainers)
 
 Rebuild the macOS kit from the repo root:

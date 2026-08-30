@@ -70,3 +70,19 @@ Logs: `.run/backend.log`
 3. Chat: "Check my ILIAS setup" → complete MFA if prompted → publish or browse courses
 
 Note: Claude.ai web chat alone cannot run local MCP; use Claude Code or Claude Desktop for tools.
+
+## Uninstall
+
+```bash
+./uninstall.sh
+./uninstall.sh --purge
+```
+
+`--purge` removes `docker-data/`, local virtualenvs, `node_modules`, and generated
+`mcp-config/installed/` files. You still need to remove the MCP entry and any
+copied skills from your agent manually.
+
+## Security
+
+Read [SECURITY.md](SECURITY.md) before installing on a shared machine. The kit binds
+API and Postgres to localhost by default and rejects non-Ovidius download URLs.

@@ -24,6 +24,8 @@ services:
     environment:
       SECRET_KEY: dev-secret-key-change-in-production
       DEBUG: "True"
+      ALLOWED_HOSTS: "*"
+      CORS_ALLOW_ALL_ORIGINS: "True"
       DB_NAME: ilias_portal
       DB_USER: postgres
       DB_PASSWORD: postgres

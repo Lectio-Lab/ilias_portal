@@ -12,7 +12,12 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = ["*"]
+_allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").strip()
+ALLOWED_HOSTS = (
+    ["*"]
+    if _allowed_hosts == "*"
+    else [host.strip() for host in _allowed_hosts.split(",") if host.strip()]
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -107,5 +112,13 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
 CORS_ALLOW_CREDENTIALS = True
+if not CORS_ALLOW_ALL_ORIGINS:
+    _cors_origins = os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:4200,http://127.0.0.1:4200",
+    )
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip() for origin in _cors_origins.split(",") if origin.strip()
+    ]
