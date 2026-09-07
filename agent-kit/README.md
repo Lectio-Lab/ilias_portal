@@ -36,7 +36,37 @@ posts once with verification; it does not calculate or recommend grades.
 ./stop.sh
 ```
 
-## More help
+## Uninstall
 
-See [INSTALL.md](INSTALL.md) for per-agent setup and troubleshooting.
-For the shortest setup and grading walkthrough, see [QUICKSTART.md](QUICKSTART.md).
+```bash
+./uninstall.sh          # stop services, print manual MCP/skills cleanup
+./uninstall.sh --purge  # also delete docker-data, .venv, node_modules, generated MCP configs
+```
+
+See [SECURITY.md](SECURITY.md) for local-only network assumptions. This kit targets **macOS**;
+Windows is not supported in this release.
+
+## Packaging (maintainers)
+
+Rebuild the macOS kit from the repo root:
+
+```bash
+./agent-kit/scripts/build-zip.sh
+```
+
+The archive name uses the MCP semver from `agent/mcp-server/package.json`
+(for example `ilias-portal-agent-kit-1.3.0-macos.zip`). Bump that file when
+cutting a new kit release.
+
+The archive ships source, lockfiles, skills, scripts, and a prebuilt MCP `dist/`.
+It deliberately excludes `backend/venv/`, `backend/.venv/`, and `node_modules/`;
+`./install.sh` creates those on the professor's machine. `build-zip.sh` fails if
+venv/node_modules leak in or the kit zip exceeds 15 MiB.
+
+Regression check (uses a detached git worktree, plants sentinel files in
+`.venv`, `venv`, and `node_modules`, then verifies they are absent from the
+built archive):
+
+```bash
+./agent-kit/scripts/test-build-zip.sh
+```

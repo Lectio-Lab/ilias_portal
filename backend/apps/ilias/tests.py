@@ -480,3 +480,29 @@ class PostGradeSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("valid choice", str(serializer.errors))
+
+
+class DownloadUrlValidationTests(SimpleTestCase):
+    def test_accepts_canonical_ovidius_asset_urls(self):
+        from .security import validate_ilias_download_url
+
+        validate_ilias_download_url(
+            "https://ovidius.uni-tuebingen.de/goto.php/file/123"
+        )
+        validate_ilias_download_url(
+            "https://ovidius.uni-tuebingen.de/ilias.php?baseClass=ilrepositoryGUI&cmd=download"
+        )
+
+    def test_rejects_external_and_internal_targets(self):
+        from .security import validate_ilias_download_url
+
+        for url in (
+            "http://ovidius.uni-tuebingen.de/goto.php/file/123",
+            "https://evil.example/goto.php/file/123",
+            "https://127.0.0.1/goto.php/file/123",
+            "https://ovidius.uni-tuebingen.de/admin/secret",
+            "https://ovidius.uni-tuebingen.de/ilias.php",
+        ):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    validate_ilias_download_url(url)

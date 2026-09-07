@@ -27,6 +27,9 @@ fi
 # Backend .env
 if [[ ! -f "$ILIAS_PORTAL_HOME/.env" ]]; then
   cp "$ILIAS_PORTAL_HOME/.env.example" "$ILIAS_PORTAL_HOME/.env"
+  secret="$(openssl rand -hex 32)"
+  sed -i.bak "s/^SECRET_KEY=.*/SECRET_KEY=$secret/" "$ILIAS_PORTAL_HOME/.env"
+  rm -f "$ILIAS_PORTAL_HOME/.env.bak"
 fi
 if [[ -d "/Applications/Google Chrome.app" ]]; then
   if ! grep -q '^PLAYWRIGHT_BROWSER_CHANNEL=' "$ILIAS_PORTAL_HOME/.env" 2>/dev/null; then
@@ -77,6 +80,7 @@ fi
 chmod +x "$ILIAS_PORTAL_HOME"/install.sh \
   "$ILIAS_PORTAL_HOME"/start.sh \
   "$ILIAS_PORTAL_HOME"/stop.sh \
+  "$ILIAS_PORTAL_HOME"/uninstall.sh \
   "$ILIAS_PORTAL_HOME"/scripts/*.sh \
   "$(resolve_agent_dir)/scripts/start-mcp.sh" 2>/dev/null || true
 
