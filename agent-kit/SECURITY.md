@@ -4,20 +4,18 @@ This kit is a **local macOS instructor tool**, not a multi-tenant cloud service.
 
 ## Network exposure
 
-- Django binds to `127.0.0.1` by default (`BACKEND_BIND_HOST`).
-- PostgreSQL publishes on `127.0.0.1:5434` only.
-- `ALLOWED_HOSTS` defaults to `localhost,127.0.0.1`.
-- CORS defaults to local frontend origins only.
+- The local Python service binds only to `127.0.0.1:8010`.
+- Every API request requires the generated local bearer secret.
 
-Do not rebind the API or database to `0.0.0.0` on shared or untrusted networks.
+The service does not expose a bind-host option and must not be placed behind a proxy.
 
 ## Credentials and sessions
 
 - University passwords are never stored (see issue #12).
-- ILIAS session cookies (`phpsessid`, `shibsession`) are stored as plain text in the
-  local Postgres volume under `docker-data/`. This is acceptable for a single-user
-  laptop install but not for shared machines. Run `./uninstall.sh --purge` before
-  decommissioning a machine.
+- ILIAS session cookies (`phpsessid`, `shibsession`) are stored in
+  `agent/credentials/ilias-state.json`. The directory is mode `0700`, the JSON and
+  bearer secret are mode `0600`, and writes are atomic and locked. This is for one
+  local instructor account; run `./uninstall.sh --purge` before decommissioning.
 
 ## Download proxy
 
@@ -32,5 +30,5 @@ with ILIAS asset paths. Arbitrary hosts and private-network targets are rejected
 
 ## Platform
 
-macOS only. Bash, Docker Desktop, host Python venv, and Playwright Chrome paths
-are not supported natively on Windows in this release.
+macOS only. Bash, a host Python venv, and Google Chrome are the supported path.
+Playwright Chromium is downloaded only after explicit consent.

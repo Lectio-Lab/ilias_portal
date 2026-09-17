@@ -92,7 +92,8 @@ local directory and report its absolute path. Read
 or reviewing the deliverables.
 
 The slide file must include PDF styling and explicit page breaks compatible with
-the project's `md-to-pdf` renderer. The exercise file contains the exact title,
+the optional Markdown-to-PDF renderer. The core kit can upload existing PDF files;
+Markdown conversion requires the separately installed authoring add-on. The exercise file contains the exact title,
 instructions, deliverables, estimated effort, and rubric that will be sent to
 ILIAS. The announcement file contains the exact title and body, including the
 selected video links and placeholders for the published slide and exercise URLs.

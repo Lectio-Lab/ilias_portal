@@ -1,33 +1,12 @@
-# MFA and ILIAS Session (Host Browser)
+# MFA and ILIAS Session
 
-## How it works
+The local Python service runs on your Mac and is reachable only at `127.0.0.1:8010`.
+It loads one generated local bearer token and opens visible Google Chrome for
+university login when `ilias_refresh_courses` needs MFA.
 
-On MCP startup, only a randomly generated local Portal API identity is loaded.
-University credentials remain blank. ILIAS session cookies are established when
-you call `ilias_refresh_courses` and complete login in the visible browser.
+University credentials are typed only into the browser. After successful login the
+service stores only ILIAS session cookies in the owner-only local state file.
 
-The backend runs **on your Mac** (not inside Docker). Postgres runs in Docker.
-
-## When MFA is required
-
-University Shibboleth login may require MFA. The backend opens a **visible browser window** via Playwright:
-
-- **Google Chrome** if installed (`PLAYWRIGHT_BROWSER_CHANNEL=chrome`)
-- Otherwise Playwright's bundled Chromium on your desktop
-
-### What you should do
-
-1. Run `./start.sh` in the kit directory
-2. Ask your agent to refresh courses or publish
-3. When the browser opens, complete login and MFA
-4. If no window appears, check `.run/backend.log`
-
-## After MFA succeeds
-
-Session cookies are cached server-side. Subsequent publish calls should work until session expiry.
-
-## Agent behavior
-
-- Call `ilias_refresh_courses` at most once per failed publish attempt
-- Do not loop MFA retries automatically
-- Tell user clearly when manual MFA is needed
+If Chrome is not installed, `./install.sh` asks before downloading Playwright
+Chromium. Use `./install.sh --install-browser` only when you explicitly want that
+fallback.

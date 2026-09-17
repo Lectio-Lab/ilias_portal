@@ -1,43 +1,27 @@
 # Instructor Quickstart
 
-This kit connects an MCP-capable agent to Ovidius ILIAS. University credentials
-and MFA are entered only in the visible university browser window.
-
-## Install and start
+This kit connects an MCP-capable agent to Ovidius ILIAS. It needs Node 22.12+,
+Python 3.12+, and Google Chrome; it does not need Docker or a database.
 
 ```bash
 ./install.sh
-./scripts/provision-interactive-auth.sh
 ./start.sh
 ```
 
-Configure your agent with the generated file under `mcp-config/installed/`, copy
-`skill/ilias-portal/` into the agent's skills directory, and restart the agent.
-
-Ask the agent:
+Configure your agent using `mcp-config/installed/`, copy `skill/ilias-portal/` into
+the agent's skill directory, then ask:
 
 > Check my ILIAS setup and refresh my courses.
 
-Complete university login and MFA if a browser window opens.
+Complete university login and MFA only in the visible browser window. The kit stores
+only resulting session cookies, never university credentials.
 
 ## Post a supplied grade
 
-Provide the exact course, exercise, assignment, participant login, and values you
-want entered. For example:
-
-> In course 123, for the exercise at https://ovidius.uni-tuebingen.de/goto.php/exc/456,
-> assignment 7, set exact ILIAS login `student_login` to `passed`, mark `1.3`,
-> and comment `Good work`.
-
-The agent will first show the resolved participant and current values. Review the
-before/after summary and confirm before it writes. A successful result explicitly
-says `verified: true` and includes the ILIAS grading URL.
-
-The agent only enters values you supply. It does not calculate, recommend, infer,
-or choose grades. It also refuses partial participant-logins, stale current
-values, ambiguous targets, batch grading by default, and unverified writes.
-
-## Stop
+Provide the exact course, exercise, assignment, participant login, and values to
+enter. The agent resolves the exact participant, shows current and proposed values,
+requires confirmation, posts once, and reports `verified: true` only after ILIAS
+confirms the write.
 
 ```bash
 ./stop.sh

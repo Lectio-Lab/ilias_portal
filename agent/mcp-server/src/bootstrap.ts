@@ -6,22 +6,6 @@ export async function bootstrapPortal(
   config: AppConfig,
   tokenManager: TokenManager
 ): Promise<PortalClient> {
-  const client = new PortalClient(config.baseUrl, tokenManager);
-
-  try {
-    await tokenManager.login();
-  } catch {
-    await client.registerPortal(
-      config.portalEmail,
-      config.portalPassword,
-      "Agent",
-      "User"
-    );
-    await tokenManager.login();
-  }
-
-  // Never POST university credentials. ILIAS auth is interactive browser MFA;
-  // only session cookies are persisted by the backend after refresh.
-
-  return client;
+  // The service is provisioned locally during install; no account registration exists.
+  return new PortalClient(config.baseUrl, tokenManager);
 }

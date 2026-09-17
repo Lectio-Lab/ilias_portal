@@ -19,7 +19,8 @@ Agent-only workflow. No frontend. Configuration lives in `agent/credentials/.env
 ## Compatibility
 
 Requires ILIAS Portal Agent Kit running (`./start.sh`), the `ilias-portal` MCP
-server, Node 22.12+, Docker Desktop, and a generated local Portal API identity.
+server, Node 22.12+, Python 3.12+, and Google Chrome. Docker and a database are
+not required.
 
 ## Prerequisites
 
@@ -29,8 +30,7 @@ server, Node 22.12+, Docker Desktop, and a generated local Portal API identity.
 
 ## Authentication
 
-Run `scripts/provision-interactive-auth.sh` once to generate a unique local API
-identity. University credentials remain blank and must be entered only in the
+`./install.sh` generates one local bearer secret. University credentials must be entered only in the
 visible university browser window opened by `ilias_refresh_courses`.
 
 Never ask the user to send a university password in chat.

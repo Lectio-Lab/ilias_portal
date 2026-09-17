@@ -28,12 +28,9 @@ function loadEnv(path) {
   }
 
   // Smoke-test defaults (protocol check only; no live API calls)
-  env.PORTAL_EMAIL = env.PORTAL_EMAIL || "smoke-test@example.com";
-  env.PORTAL_PASSWORD = env.PORTAL_PASSWORD || "smoke-test-password";
-  env.ILIAS_USERNAME = env.ILIAS_USERNAME || "zxtest1";
-  env.ILIAS_PASSWORD = env.ILIAS_PASSWORD || "smoke-test-password";
+  env.PORTAL_LOCAL_TOKEN = env.PORTAL_LOCAL_TOKEN || "smoke-test-local-token";
   env.ILIAS_COURSE_ID = env.ILIAS_COURSE_ID || "5658784";
-  env.API_BASE_URL = env.API_BASE_URL || "http://localhost:8000";
+  env.API_BASE_URL = env.API_BASE_URL || "http://127.0.0.1:8010";
 
   return env;
 }

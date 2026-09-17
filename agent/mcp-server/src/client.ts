@@ -34,91 +34,9 @@ export class PortalClient {
     return (await response.json()) as T;
   }
 
-  async getProfile() {
-    return this.requestJson<{
-      id: number;
-      email: string;
-      first_name: string;
-      last_name: string;
-    }>("/api/auth/profile/");
-  }
-
-  async getIliasCredentials() {
-    const response = await this.tokenManager.authenticatedFetch(
-      `${this.baseUrl}/api/auth/ilias-credentials/`
-    );
-
-    if (response.status === 404) {
-      return null;
-    }
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as Record<
-        string,
-        unknown
-      >;
-      const mapped = mapApiError(response.status, body);
-      throw new Error(formatToolError(mapped));
-    }
-
-    return (await response.json()) as {
-      ilias_username: string;
-      created_at: string;
-      updated_at: string;
-    };
-  }
-
   async getSessionStatus() {
     return this.requestJson<{ valid: boolean; message: string }>(
       "/api/ilias/session/status/"
-    );
-  }
-
-  async registerPortal(
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string
-  ) {
-    const response = await fetch(`${this.baseUrl}/api/auth/register/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        first_name: firstName,
-        last_name: lastName,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as Record<
-        string,
-        unknown
-      >;
-      const detail =
-        typeof body.email === "object"
-          ? JSON.stringify(body)
-          : typeof body.detail === "string"
-            ? body.detail
-            : JSON.stringify(body);
-      throw new Error(`Portal registration failed (${response.status}): ${detail}`);
-    }
-
-    return response.json();
-  }
-
-  async saveIliasCredentials(username: string, password: string) {
-    return this.requestJson<{ ilias_username: string }>(
-      "/api/auth/ilias-credentials/",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ilias_username: username,
-          ilias_password: password,
-        }),
-      }
     );
   }
 

@@ -22,17 +22,17 @@ echo ""
 "$KIT_HOME/stop.sh"
 
 if [[ "$PURGE" == true ]]; then
-  echo "Purging local kit data (docker-data, .run, virtualenvs, node_modules)..."
+  echo "Purging local kit data (.run, virtualenvs, node_modules, credentials)..."
   rm -rf \
-    "$KIT_HOME/docker-data" \
     "$KIT_HOME/.run" \
     "$(resolve_backend_dir)/.venv" \
     "$(resolve_agent_dir)/mcp-server/node_modules" \
     "$KIT_HOME/mcp-config/installed" \
-    "$KIT_HOME/.mcp.json"
+    "$KIT_HOME/.mcp.json" \
+    "$(resolve_agent_dir)/credentials"
   echo "Purged kit-local state."
 else
-  echo "Kept docker-data/, .venv, and node_modules. Re-run with --purge to delete them."
+  echo "Kept .venv, node_modules, and local session state. Re-run with --purge to delete them."
 fi
 
 cat <<EOF
@@ -45,9 +45,8 @@ Manual cleanup (outside this script):
    - hero-content-maker
 3. Delete the extracted kit directory when you no longer need it:
    $KIT_HOME
-4. Optional: remove shared caches if nothing else uses them:
-   - Docker image postgres:16-alpine
-   - Playwright Chromium cache (~/.cache/ms-playwright)
+4. Optional: remove the Playwright Chromium cache (~/.cache/ms-playwright) if you
+   explicitly installed the fallback browser and nothing else uses it.
 
 The kit does not install a system service or global npm package.
 EOF

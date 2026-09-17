@@ -5,7 +5,15 @@
  */
 import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { mdToPdf } from "md-to-pdf";
+import { createRequire } from "node:module";
+
+let mdToPdf;
+try {
+  ({ mdToPdf } = createRequire(import.meta.url)("md-to-pdf"));
+} catch {
+  console.error("Markdown-to-PDF is optional. Install the authoring add-on with PUPPETEER_SKIP_DOWNLOAD=true and installed Chrome.");
+  process.exit(2);
+}
 
 const input = process.argv[2];
 if (!input) {

@@ -1,17 +1,11 @@
 export interface AppConfig {
   baseUrl: string;
-  portalEmail: string;
-  portalPassword: string;
-  iliasUsername: string;
-  iliasPassword: string;
+  portalLocalToken: string;
   courseId: number;
   courseIds: number[];
 }
 
-const REQUIRED_ENV_KEYS = [
-  "PORTAL_EMAIL",
-  "PORTAL_PASSWORD",
-] as const;
+const REQUIRED_ENV_KEYS = ["PORTAL_LOCAL_TOKEN"] as const;
 
 function credentialsHint(): string {
   const home = process.env.ILIAS_PORTAL_HOME;
@@ -20,7 +14,7 @@ function credentialsHint(): string {
     (home
       ? `${home}/agent/credentials/.env.local`
       : "agent/credentials/.env.local");
-  return `Copy agent/credentials/.env.local.example to ${path} and fill in all fields.`;
+  return `Run ./install.sh to create ${path} with this installation's local bearer token.`;
 }
 
 export function getMissingEnvVars(): string[] {
@@ -58,14 +52,11 @@ export function getEnvConfig(): AppConfig | null {
   const courseIds = parseCourseIds();
 
   return {
-    baseUrl: (process.env.API_BASE_URL ?? "http://localhost:8000").replace(
+    baseUrl: (process.env.API_BASE_URL ?? "http://127.0.0.1:8010").replace(
       /\/$/,
       ""
     ),
-    portalEmail: process.env.PORTAL_EMAIL!.trim(),
-    portalPassword: process.env.PORTAL_PASSWORD!.trim(),
-    iliasUsername: process.env.ILIAS_USERNAME?.trim() ?? "",
-    iliasPassword: process.env.ILIAS_PASSWORD?.trim() ?? "",
+    portalLocalToken: process.env.PORTAL_LOCAL_TOKEN!.trim(),
     courseId: courseIds[0] ?? 0,
     courseIds,
   };
@@ -83,19 +74,9 @@ export function validateEnv(): AppConfig {
   const config = getEnvConfig();
   if (!config) throw new Error("Portal configuration is incomplete.");
 
-  if (config.iliasPassword) {
-    throw new Error(
-      "ILIAS_PASSWORD must stay blank. University passwords are never stored. " +
-        "Clear ILIAS_PASSWORD in your .env.local and complete login via " +
-        "ilias_refresh_courses in the browser MFA window."
-    );
-  }
-
-  if (config.iliasUsername && !config.iliasUsername.startsWith("zx")) {
-    throw new Error(
-      "ILIAS_USERNAME must start with 'zx' and be your own account, or stay blank. " +
-        "Update ILIAS_USERNAME in your .env.local credentials file."
-    );
+  const endpoint = new URL(config.baseUrl);
+  if (!["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)) {
+    throw new Error("API_BASE_URL must target the local ILIAS service.");
   }
 
   return config;

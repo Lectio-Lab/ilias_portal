@@ -2,8 +2,8 @@
 # Replace {{KIT_HOME}} with the absolute path to your unzipped kit.
 #
 # Add MCP server in Gemini settings (stdio):
-#   command: node
-#   args: ["{{KIT_HOME}}/agent/mcp-server/dist/cli.js"]
+#   command: /bin/bash
+#   args: ["{{KIT_HOME}}/agent/scripts/start-mcp.sh"]
 #   env:
 #     ILIAS_PORTAL_HOME: "{{KIT_HOME}}"
 #

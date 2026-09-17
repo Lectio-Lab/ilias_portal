@@ -30,8 +30,7 @@ MCP_DIR="$KIT_HOME/agent/mcp-server"
 export ILIAS_PORTAL_HOME="$KIT_HOME"
 
 REQUIRED_VARS=(
-  PORTAL_EMAIL
-  PORTAL_PASSWORD
+  PORTAL_LOCAL_TOKEN
 )
 
 if [[ ! -f "$CREDS_FILE" ]]; then
@@ -58,8 +57,8 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 
 if [[ ! -f "$MCP_DIR/dist/cli.js" ]]; then
-  echo "ilias-portal MCP: building server..." >&2
-  (cd "$MCP_DIR" && npm install && npm run build)
+  echo "ilias-portal MCP: packaged dist/cli.js is missing. Reinstall a complete kit archive." >&2
+  exit 1
 fi
 
 exec node "$MCP_DIR/dist/cli.js"
