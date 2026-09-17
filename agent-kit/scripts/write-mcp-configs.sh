@@ -8,8 +8,7 @@ source "$SCRIPT_DIR/lib.sh"
 KIT_HOME="$(resolve_kit_home)"
 OUT_DIR="$KIT_HOME/mcp-config/installed"
 AGENT_DIR="$(resolve_agent_dir)"
-MCP_CLI="$AGENT_DIR/mcp-server/dist/cli.js"
-NODE_BIN="$(command -v node)"
+MCP_START="$AGENT_DIR/scripts/start-mcp.sh"
 
 mkdir -p "$OUT_DIR"
 
@@ -19,8 +18,8 @@ write_json() {
 {
   "mcpServers": {
     "ilias-portal": {
-      "command": "$NODE_BIN",
-      "args": ["$MCP_CLI"],
+      "command": "/bin/bash",
+      "args": ["$MCP_START"],
       "env": {
         "ILIAS_PORTAL_HOME": "$KIT_HOME"
       }
@@ -42,7 +41,7 @@ Generated MCP configs for: $KIT_HOME
 
 Cursor: merge mcp-config/installed/cursor.mcp.json into your project's .cursor/mcp.json
 Claude Code: .mcp.json is already in the kit root, or use:
-  claude mcp add --scope project ilias-portal -- env ILIAS_PORTAL_HOME="$KIT_HOME" $NODE_BIN $MCP_CLI
+  claude mcp add --scope project ilias-portal -- env ILIAS_PORTAL_HOME="$KIT_HOME" /bin/bash $MCP_START
 Claude Desktop: merge claude-desktop.mcp.json into:
   ~/Library/Application Support/Claude/claude_desktop_config.json
 EOF

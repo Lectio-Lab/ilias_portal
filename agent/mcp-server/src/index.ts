@@ -47,13 +47,10 @@ export function createServer(
         const missing = getMissingEnvVars();
         const envConfigured = missing.length === 0;
 
-        let profile: { email: string; first_name: string; last_name: string } | null =
-          null;
         let sessionStatus: { valid: boolean; message: string } | null = null;
 
         if (envConfigured) {
           try {
-            profile = await client.getProfile();
             sessionStatus = await client.getSessionStatus();
           } catch (err) {
             sessionStatus = {
@@ -74,11 +71,8 @@ export function createServer(
         return textResult({
           env_configured: envConfigured,
           missing_env_vars: missing,
-          portal_user: profile?.email ?? config.portalEmail,
-          ilias_auth_mode:
-            config.iliasUsername && config.iliasPassword
-              ? "stored_credentials"
-              : "interactive_browser",
+          portal_user: "installation-local bearer token",
+          ilias_auth_mode: "interactive_browser",
           course_id: config.courseId || null,
           course_ids: config.courseIds,
           ilias_session: sessionStatus,
@@ -687,11 +681,7 @@ export function createServer(
 
 export async function main(): Promise<void> {
   const config = validateEnv();
-  const tokenManager = new TokenManager(
-    config.baseUrl,
-    config.portalEmail,
-    config.portalPassword
-  );
+  const tokenManager = new TokenManager(config.portalLocalToken);
 
   let client: PortalClient;
   if (process.env.SKIP_BOOTSTRAP === "1") {

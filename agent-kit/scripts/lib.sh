@@ -65,21 +65,6 @@ version_ge() {
     (( cur_major == min_major && cur_minor == min_minor && cur_patch >= min_patch ))
 }
 
-check_docker() {
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "Docker is not installed."
-    echo "Install Docker Desktop: https://docs.docker.com/desktop/install/mac-install/"
-    if command -v brew >/dev/null 2>&1; then
-      echo "Or run: brew install --cask docker"
-    fi
-    return 1
-  fi
-  if ! docker info >/dev/null 2>&1; then
-    echo "Docker is installed but not running. Start Docker Desktop and retry."
-    return 1
-  fi
-}
-
 check_node() {
   if ! command -v node >/dev/null 2>&1; then
     echo "Node.js is not installed (need 22.12+)."

@@ -25,10 +25,10 @@ mkdir -p "$STAGE"
 
 # Kit scaffolding (install, compose, scripts, skill, mcp-config)
 cp "$KIT_SRC/README.md" "$KIT_SRC/INSTALL.md" "$KIT_SRC/QUICKSTART.md" "$KIT_SRC/SECURITY.md" "$KIT_SRC/install.sh" \
-  "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/uninstall.sh" "$KIT_SRC/docker-compose.yml" \
-  "$KIT_SRC/.env.example" "$STAGE/"
+  "$KIT_SRC/start.sh" "$KIT_SRC/stop.sh" "$KIT_SRC/uninstall.sh" "$STAGE/"
 mkdir -p "$STAGE/scripts"
 cp "$KIT_SRC/scripts/"*.sh "$STAGE/scripts/"
+rm -f "$STAGE/scripts/test-build-zip.sh"
 chmod +x "$STAGE"/install.sh "$STAGE"/start.sh "$STAGE"/stop.sh "$STAGE"/uninstall.sh "$STAGE"/scripts/*.sh
 
 cp -R "$KIT_SRC/skill" "$STAGE/"
@@ -51,6 +51,7 @@ rsync -a \
   --exclude 'venv/' \
   --exclude '__pycache__/' \
   --exclude '*.pyc' \
+  --exclude 'tests/' \
   --exclude '.pytest_cache/' \
   --exclude '.mypy_cache/' \
   --exclude '*.egg-info/' \
@@ -66,6 +67,8 @@ rsync -a \
   --exclude '.env' \
   --exclude 'credentials/.env.local' \
   --exclude 'credentials/*.local' \
+  --exclude 'tests/' \
+  --exclude '*.map' \
   --exclude 'tests/eval/results/' \
   "$REPO_ROOT/agent/" "$STAGE/agent/"
 chmod +x "$STAGE/agent/scripts/start-mcp.sh"

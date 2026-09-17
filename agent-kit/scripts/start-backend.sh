@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Django backend on the host (for reliable MFA browser on macOS).
+# Start the localhost-only Python service on the host for visible MFA on macOS.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,21 +27,23 @@ fi
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
 
-if [[ -f "$KIT_HOME/.env" ]]; then
+CREDS_FILE="$(resolve_agent_dir)/credentials/.env.local"
+if [[ -f "$CREDS_FILE" ]]; then
   set -a
   # shellcheck disable=SC1090
-  source "$KIT_HOME/.env"
+  source "$CREDS_FILE"
   set +a
-elif [[ -f "$BACKEND_DIR/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$BACKEND_DIR/.env"
-  set +a
+else
+  echo "Credentials file not found. Run ./install.sh first." >&2
+  exit 1
 fi
 
 cd "$BACKEND_DIR"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-BACKEND_BIND_HOST="${BACKEND_BIND_HOST:-127.0.0.1}"
-nohup python manage.py runserver "$BACKEND_BIND_HOST:$BACKEND_PORT" >"$LOG_FILE" 2>&1 &
+BACKEND_PORT="${BACKEND_PORT:-8010}"
+# server.py hard-codes 127.0.0.1 rather than trusting a user-provided bind host.
+if [[ -d "/Applications/Google Chrome.app" && -z "${PLAYWRIGHT_EXECUTABLE_PATH:-}" ]]; then
+  export PLAYWRIGHT_BROWSER_CHANNEL=chrome
+fi
+nohup python server.py --port "$BACKEND_PORT" >"$LOG_FILE" 2>&1 &
 echo $! >"$PID_FILE"
-echo "Backend started on $BACKEND_BIND_HOST:$BACKEND_PORT (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"
+echo "Local service started on 127.0.0.1:$BACKEND_PORT (pid $(cat "$PID_FILE")). Logs: $LOG_FILE"

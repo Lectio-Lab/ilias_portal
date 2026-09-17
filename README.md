@@ -1,135 +1,84 @@
-# 🎓 ILIAS Portal
+# ILIAS Portal Agent Kit
 
-A full-stack industry-grade web application that provides a modern Angular frontend + Django REST Framework backend for managing courses on the **Ovidius ILIAS** system at the University of Tübingen.
+A lean, macOS-focused MCP integration for operating the University of Tübingen's
+Ovidius ILIAS instance from compatible AI agents. The distributable kit is designed
+for a single instructor account and runs entirely on the local machine.
 
 ## What it does
 
-Users can:
-1. **Register & Login** to the portal with their own account
-2. **Save ILIAS credentials** (Tübingen university `zx...` login)
-3. **Refresh and view all their ILIAS courses** with a single click
-4. **Browse course contents** — see all sections, files, exercises, etc.
-5. **Download files** directly from the portal
-6. **Publish assignments** (Übungen) to any course they moderate
-7. **Find and safely edit existing exercises** (content, title, and deadline)
-8. **Upload lecture slides** (creates a folder and uploads files)
-9. **Post announcements** (news items) to the course timeline
+The MCP server can:
+
+- establish an interactive ILIAS session through the university login and MFA flow;
+- list courses and inspect live course contents;
+- find and safely edit existing exercises;
+- publish assignments, files, lecture material, and announcements;
+- resolve an exact grading target and post instructor-supplied grades with
+  current-value guards and post-write verification; and
+- support the bundled teaching-content and Hero Content Maker skills.
+
+The agent must never calculate, recommend, infer, or choose a student's grade.
 
 ## Architecture
 
-```
-ilias_portal/
-├── backend/        # Django REST Framework API
-│   ├── config/     # Django settings, urls, wsgi
-│   └── apps/
-│       ├── accounts/  # User auth + ILIAS credential storage
-│       └── ilias/     # Course data + ILIAS operations
-└── frontend/       # Angular 17 SPA
-    └── src/
-        └── app/
-            ├── core/       # Services, guards, models
-            ├── features/   # Pages (login, courses, course-detail, etc.)
-            └── shared/     # Navbar and other shared components
+```text
+agent-kit/  Installer, documentation, MCP configuration templates, and skills
+agent/      TypeScript MCP server and protocol/unit tests
+backend/    Small localhost-only Python service plus the ILIAS integration
+frontend/   Legacy development UI; not included in the professor kit
 ```
 
-## Stack
+The release path deliberately has no Django, PostgreSQL, Docker, portal accounts,
+or public web server. The Python service binds to `127.0.0.1`, accepts only a
+generated installation-local bearer token, and stores only protected ILIAS session
+cookies. University usernames and passwords are entered only in the visible browser
+during login and are never persisted.
 
-| Layer | Tech |
-|-------|------|
-| Frontend | Angular 17 (standalone components) |
-| Backend | Django 4.2 + Django REST Framework 3.15 |
-| Auth | JWT (SimpleJWT) — 24h access / 7d refresh |
-| Database | PostgreSQL |
-| ILIAS scraping | `requests` + `BeautifulSoup4` (headless Shibboleth SSO) |
+## Build the professor kit
 
-## Quick Start
-
-### Backend
+Requirements for maintainers are Node.js 22.12+, Python 3.12+, Bash, `rsync`,
+`zip`, and `unzip`.
 
 ```bash
-cd backend
-
-# 1. Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Configure environment
-cp .env.example .env
-# Edit .env with your PostgreSQL credentials + SECRET_KEY
-
-# 4. Create database (PostgreSQL must be running)
-createdb ilias_portal
-
-# 5. Run migrations
-python manage.py migrate
-
-# 6. Create superuser (optional)
-python manage.py createsuperuser
-
-# 7. Start server
-python manage.py runserver
-# → http://localhost:8000
+./agent-kit/scripts/test-build-zip.sh
 ```
 
-### Frontend
+The packaging test builds the MCP server, creates a versioned macOS ZIP under
+`dist/`, plants exclusion sentinels, and verifies that virtual environments,
+`node_modules`, generated machine-local configuration, tests, and source maps do
+not leak into the archive. It also enforces the 15 MiB release limit.
+
+For a normal build without the regression fixture:
 
 ```bash
-cd frontend
-
-# 1. Install Node dependencies
-npm install
-
-# 2. Start dev server
-npm start
-# → http://localhost:4200
+./agent-kit/scripts/build-zip.sh
 ```
 
-## API Endpoints
+## Install a built kit
 
-### Auth
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/api/auth/login/` | Get JWT tokens |
-| POST | `/api/auth/refresh/` | Refresh access token |
-| POST | `/api/auth/register/` | Create account |
-| GET/PATCH | `/api/auth/profile/` | View/update profile |
-| GET/POST/PUT | `/api/auth/ilias-credentials/` | Manage ILIAS credentials |
+After extracting `dist/ilias-portal-agent-kit-<version>-macos.zip`:
 
-### ILIAS
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/api/ilias/courses/` | List cached courses |
-| POST | `/api/ilias/courses/refresh/` | Login to ILIAS, fetch fresh course list |
-| GET | `/api/ilias/courses/<id>/contents/` | Get course sections + items |
-| GET | `/api/ilias/courses/<id>/items/search/?q=<query>` | Find live course items and exact URLs |
-| PATCH | `/api/ilias/courses/<id>/items/exercise/` | Edit and verify an exact exercise |
-| GET | `/api/ilias/courses/<id>/grades/target/` | Resolve one exact participant's current assignment grade |
-| POST | `/api/ilias/courses/<id>/grades/` | Post and verify instructor-supplied grade fields |
-| POST | `/api/ilias/courses/<id>/publish/assignment/` | Create exercise + assignment |
-| POST | `/api/ilias/courses/<id>/publish/slides/` | Create folder + upload files |
-| POST | `/api/ilias/courses/<id>/publish/announcement/` | Post news item |
-| GET | `/api/ilias/download/?url=<encoded>` | Proxy file download from ILIAS |
-
-## Environment Variables
-
-```env
-SECRET_KEY=your-django-secret-key
-DEBUG=True
-DB_NAME=ilias_portal
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=localhost
-DB_PORT=5432
+```bash
+cd ilias-portal-agent-kit
+./install.sh
+./start.sh
 ```
 
-## Security Notes
+Use the generated files in `mcp-config/installed/` to register the MCP server,
+then install the required folders from `skill/` in the target agent. See
+[`agent-kit/INSTALL.md`](agent-kit/INSTALL.md) for the complete workflow and
+[`agent-kit/SECURITY.md`](agent-kit/SECURITY.md) for the security model.
 
-- ILIAS credentials are stored plaintext in PostgreSQL — for production, add field-level encryption (e.g., `django-encrypted-fields`)
-- CORS is wide-open for development — restrict `CORS_ALLOWED_ORIGINS` in production
-- Use HTTPS in production and set `DEBUG=False`
-- Grade posting requires exact target discovery, current-value guards, explicit
-  instructor confirmation, a single write, and post-write verification. Agents
-  must never calculate, recommend, infer, or choose a student's grade.
+## Development checks
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python -m unittest discover -s backend/tests -v
+
+cd agent/mcp-server
+npm ci
+npm test
+npm run build
+npm run smoke
+```
+
+The optional Markdown-to-PDF authoring add-on is intentionally excluded from the
+core professor kit so it does not ship a browser runtime or Puppeteer dependency.

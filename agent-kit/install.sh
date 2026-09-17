@@ -11,8 +11,15 @@ echo "=== ILIAS Portal Agent Kit ==="
 echo "Install directory: $ILIAS_PORTAL_HOME"
 echo ""
 
+INSTALL_BROWSER=false
+if [[ "${1:-}" == "--install-browser" ]]; then
+  INSTALL_BROWSER=true
+elif [[ -n "${1:-}" ]]; then
+  echo "Usage: ./install.sh [--install-browser]" >&2
+  exit 1
+fi
+
 echo "Checking prerequisites..."
-check_docker
 check_node
 PY="$(check_python)"
 echo "Using Python: $PY"
@@ -24,26 +31,7 @@ if [[ ! -f "$CREDS_FILE" ]]; then
   echo ""
 fi
 
-# Backend .env
-if [[ ! -f "$ILIAS_PORTAL_HOME/.env" ]]; then
-  cp "$ILIAS_PORTAL_HOME/.env.example" "$ILIAS_PORTAL_HOME/.env"
-  secret="$(openssl rand -hex 32)"
-  sed -i.bak "s/^SECRET_KEY=.*/SECRET_KEY=$secret/" "$ILIAS_PORTAL_HOME/.env"
-  rm -f "$ILIAS_PORTAL_HOME/.env.bak"
-fi
-if [[ -d "/Applications/Google Chrome.app" ]]; then
-  if ! grep -q '^PLAYWRIGHT_BROWSER_CHANNEL=' "$ILIAS_PORTAL_HOME/.env" 2>/dev/null; then
-    echo "PLAYWRIGHT_BROWSER_CHANNEL=chrome" >>"$ILIAS_PORTAL_HOME/.env"
-    echo "Configured Playwright to use Google Chrome for MFA."
-  fi
-fi
 BACKEND_DIR="$(resolve_backend_dir)"
-if [[ ! -f "$BACKEND_DIR/.env" ]]; then
-  cp "$ILIAS_PORTAL_HOME/.env" "$BACKEND_DIR/.env"
-fi
-
-echo "Starting Postgres (Docker)..."
-docker compose -f "$ILIAS_PORTAL_HOME/docker-compose.yml" up -d
 
 echo "Setting up Python backend..."
 BACKEND_DIR="$(resolve_backend_dir)"
@@ -55,24 +43,35 @@ fi
 source "$VENV/bin/activate"
 pip install -q --upgrade pip
 pip install -q -r "$BACKEND_DIR/requirements.txt"
-playwright install chromium
-
-echo "Running database migrations..."
-cd "$BACKEND_DIR"
-python manage.py migrate --noinput
+if [[ -n "${PLAYWRIGHT_EXECUTABLE_PATH:-}" && -x "${PLAYWRIGHT_EXECUTABLE_PATH}" ]]; then
+  echo "Using configured browser at $PLAYWRIGHT_EXECUTABLE_PATH for visible MFA."
+elif [[ -d "/Applications/Google Chrome.app" ]]; then
+  export PLAYWRIGHT_BROWSER_CHANNEL=chrome
+  echo "Using installed Google Chrome for visible MFA; no Chromium download is needed."
+elif [[ "$INSTALL_BROWSER" == true ]]; then
+  echo "Google Chrome was not found; installing Playwright Chromium by explicit request."
+  playwright install chromium
+elif [[ -t 0 ]]; then
+  read -r -p "Google Chrome was not found. Download Playwright Chromium for MFA now? [y/N] " reply
+  if [[ "$reply" =~ ^[Yy]$ ]]; then
+    playwright install chromium
+  else
+    echo "Install Google Chrome, or re-run ./install.sh --install-browser." >&2
+    exit 1
+  fi
+else
+  echo "Google Chrome was not found. Install it, or re-run ./install.sh --install-browser." >&2
+  exit 1
+fi
 
 MCP_DIR="$(resolve_agent_dir)/mcp-server"
 if [[ ! -d "$MCP_DIR/node_modules" ]]; then
   echo "Installing MCP server dependencies..."
-  if [[ -f "$MCP_DIR/dist/cli.js" ]]; then
-    (cd "$MCP_DIR" && npm ci --omit=dev)
-  else
-    (cd "$MCP_DIR" && npm ci)
-  fi
+  (cd "$MCP_DIR" && npm ci --omit=dev --ignore-scripts)
 fi
 if [[ ! -f "$MCP_DIR/dist/cli.js" ]]; then
-  echo "Building MCP server..."
-  (cd "$MCP_DIR" && npm run build)
+  echo "Packaged MCP dist/ is missing. Re-extract a complete kit archive." >&2
+  exit 1
 else
   echo "MCP server dependencies and dist/ are present."
 fi
@@ -96,7 +95,7 @@ fi
 
 echo ""
 echo "=== Install complete ==="
-echo "1. Run: ./start.sh"
+echo "1. Run: ./start.sh (the local service is loopback-only)"
 echo "2. Register MCP (see mcp-config/installed/ or INSTALL.md)"
 echo "3. Install skill: copy skill/ilias-portal to your agent's skills folder"
 echo "4. Refresh courses and complete university login/MFA in the browser"
