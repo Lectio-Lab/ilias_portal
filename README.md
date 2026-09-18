@@ -4,6 +4,23 @@ A lean, macOS-focused MCP integration for operating the University of Tübingen'
 Ovidius ILIAS instance from compatible AI agents. The distributable kit is designed
 for a single instructor account and runs entirely on the local machine.
 
+## How it works
+
+![How Lectio Lab talks to ILIAS](img/architecture-diagram.png)
+
+The professor talks to their AI agent in plain language. The agent picks one exact,
+typed MCP tool instead of guessing at a browser macro. That tool call goes to a small
+local Python service, bound only to `127.0.0.1`, which is the one place that holds
+ILIAS session cookies and the installation's bearer token. That service is the only
+thing that ever talks to ILIAS itself, and the professor's one browser login (with
+MFA) is reused after the first time, so nothing here bypasses the university's login
+requirements.
+
+An earlier version of this project was a second website for professors to prepare
+course material in. After showing it to our instructors, the feedback was direct:
+professors already live inside ILIAS every day, and a second site was more work for
+them, not less. That's the whole reason this shipped as an MCP integration instead.
+
 ## What it does
 
 The MCP server can:
@@ -32,6 +49,13 @@ or public web server. The Python service binds to `127.0.0.1`, accepts only a
 generated installation-local bearer token, and stores only protected ILIAS session
 cookies. University usernames and passwords are entered only in the visible browser
 during login and are never persisted.
+
+## Example session
+
+![An instructor publishing slides to ILIAS from a chat session](img/mcp-chat-example.png)
+
+A real session in Cursor: the professor asks in plain language, the agent calls the
+`ilias-portal` MCP tools, and ILIAS confirms the write.
 
 ## Build the professor kit
 
