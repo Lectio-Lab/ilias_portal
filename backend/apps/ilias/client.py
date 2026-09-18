@@ -273,13 +273,19 @@ class IliasClient:
 
     def get_dashboard_courses(self) -> list:
         """
-        Scrape the ILIAS dashboard for courses.
+        Scrape all of the user's course/group memberships.
+
+        Uses the "Memberships" overview (ilmembershipoverviewgui) rather than
+        the Dashboard widget: the Dashboard only shows a favorites/recent
+        subset and silently omits courses (e.g. from other semesters) that
+        were never favorited. Memberships lists everything the user belongs
+        to, unfiltered by semester or favorite status.
         Returns a list of dicts: {id, title, url, role}.
         """
-        url = f"{BASE_URL}/ilias.php?baseClass=ilDashboardGUI"
+        url = f"{BASE_URL}/ilias.php?baseClass=ilmembershipoverviewgui"
         res = self.session.get(url, allow_redirects=True)
         if "login.php" in res.url or "shib_login.php" in res.url:
-            raise IliasLoginError("Session expired while fetching dashboard.")
+            raise IliasLoginError("Session expired while fetching memberships.")
 
         return self._parse_course_list(res.text)
 
