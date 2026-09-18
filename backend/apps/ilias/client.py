@@ -289,25 +289,6 @@ class IliasClient:
 
         return self._parse_course_list(res.text)
 
-    def get_moderator_courses(self) -> list:
-        """
-        Return courses where the authenticated user has admin/tutor/moderator access.
-        Fetches the "My Courses & Groups" panel from the dashboard.
-        """
-        url = f"{BASE_URL}/ilias.php?baseClass=ilDashboardGUI&cmd=jumpToSelectedItems"
-        res = self.session.get(url, allow_redirects=True)
-        if "login.php" in res.url or "shib_login.php" in res.url:
-            raise IliasLoginError("Session expired while fetching moderator courses.")
-
-        all_courses = self._parse_course_list(res.text)
-        # Filter to courses where we have write access (admin / tutor role)
-        return [
-            c
-            for c in all_courses
-            if c.get("role", "").lower()
-            in ("admin", "tutor", "moderator", "instructor", "")
-        ]
-
     def _parse_course_list(self, html: str) -> list:
         """
         Parse an ILIAS page and extract all course items.
@@ -332,17 +313,19 @@ class IliasClient:
                 if m:
                     course_id = int(m.group(1))
 
-            # Try to detect role from surrounding markup
+            # Admin/tutor access shows an "Edit Content" action on the item;
+            # plain members only get view/leave actions.
             role = ""
             parent = item.find_parent(
-                class_=re.compile(r"il-std-item|ilObjListRow|il-item")
+                class_=re.compile(r"il-std-item-container|ilObjListRow")
             )
             if parent:
-                role_tag = parent.find(
-                    class_=re.compile(r"il-item-description|il_ItemProperty")
+                admin_action = parent.find(
+                    "button",
+                    attrs={"data-action": re.compile(r"cmd=enableAdministrationPanel")},
                 )
-                if role_tag:
-                    role = role_tag.get_text(strip=True).lower()
+                if admin_action:
+                    role = "admin"
 
             if course_id is not None:
                 courses.append(
